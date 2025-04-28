@@ -1,10 +1,39 @@
 [package]
-name = "rustspray"
-version = "0.1.0"
-edition = "2021"
-license = "MIT"
-description = "A Rust-based camera spraying system for precision weed control in agriculture"
-repository = ""
-readme = "README.md"
-keywords = ["agriculture", "precision-farming", "weed-control", "rust", "opencv"]
-categories = ["hardware", "embedded", "image-processing
+name        = "rustspray"
+version     = "0.1.0"
+edition     = "2021"
+license     = "MIT"
+description = "A Rust-based camera-and-sprayer system for precision weed control in agriculture"
+homepage    = "https://github.com/cropcusader/Rust-Spray"
+repository  = "https://github.com/cropcusader/Rust-Spray"
+readme      = "README.md"
+keywords    = ["agriculture", "precision-farming", "weed-control", "rust", "opencv"]
+categories  = ["hardware", "embedded", "science", "image-processing"]
+
+[dependencies]
+# Computer-vision & image processing
+opencv      = { version = "0.89", features = ["opencv-4"] }
+
+# Configuration loading
+serde       = { version = "1.0", features = ["derive"] }
+toml        = "0.8"
+
+# CLI, logging, and error handling
+clap        = { version = "4.5", features = ["derive"] }
+log         = "0.4"
+env_logger  = "0.11"
+thiserror   = "1.0"
+
+# Raspberry Pi GPIO (optional, only makes sense on Pi)
+rppal       = { version = "0.15", optional = true }
+
+[features]
+# Build with GPIO support by default; desktop users can disable via
+#   cargo build --no-default-features
+default     = ["with-rppal"]
+with-rppal  = ["rppal"]
+
+# ---- Platform guard -------------------------------------------------
+# On non-ARM hosts we still let the crate compile, but rppal won’t be used.
+[target.'cfg(not(target_arch = "arm"))'.dependencies]
+rppal = { version = "0.15", optional = true }
