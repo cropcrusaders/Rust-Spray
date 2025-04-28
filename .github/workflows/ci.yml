@@ -62,9 +62,9 @@ jobs:
     - name: Run tests
       run: cargo test --target x86_64-unknown-linux-gnu
 
-    # Step 7: Upload the compiled binary as an artifact
+    # Step 7: Upload the compiled binary as an artifact 
     - name: Upload binary
-      uses: actions/upload-artifact@v3
-      with:
-        name: rustspray-binary
-        path: target/aarch64-unknown-linux-gnu/release/rustspraywa 
+  uses: actions/upload-artifact@v3  # Corrected action name
+  with:
+    name: rustspray-binary
+    path: target/aarch64-unknown-linux-gnu/release/rustspray
