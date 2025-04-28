@@ -12,7 +12,7 @@ categories  = ["hardware", "embedded", "science", "image-processing"]
 
 [dependencies]
 # Computer-vision & image processing
-opencv.     = "0.89"
+opencv      = "0.89"
 
 # Configuration loading
 serde       = { version = "1.0", features = ["derive"] }
