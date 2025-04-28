@@ -16,14 +16,36 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    # 2️⃣ 🔒 Verify Cargo.lock is up-to-date
-    - name: Verify Cargo.lock
+       # 2️⃣ 🔒 Refresh & (optionally) commit Cargo.lock
+    - name: Refresh Cargo.lock
+      env:
+        GH_TOKEN: ${{ secrets.PAT_PUSH }}
       run: |
-        cargo generate-lockfile          # rewrites lock if needed
-        if ! git diff --exit-code Cargo.lock; then
-          echo "::error::Cargo.lock is stale. Run 'cargo generate-lockfile' and commit the change."
-          exit 1
+        set -euo pipefail
+
+        cargo generate-lockfile      # rewrites Cargo.lock if needed
+
+        # When running in a fork or PR, just fail if the lock changed.
+        if [[ "$GITHUB_REPOSITORY" != "CropCrusaders/Rust-Spray" ]]; then
+          if ! git diff --quiet Cargo.lock; then
+            echo "::error::Cargo.lock is stale. Run 'cargo generate-lockfile' and commit the change."
+            exit 1
+          fi
+          exit 0
         fi
+
+        # We’re in the main repo: auto-commit any changes.
+        if git diff --quiet Cargo.lock; then
+          echo "Cargo.lock already up-to-date."
+          exit 0
+        fi
+
+        echo "Updating stale Cargo.lock and pushing commit…"
+        git config user.name  "GitHub Actions"
+        git config user.email "actions@github.com"
+        git add Cargo.lock
+        git commit -m "ci: refresh Cargo.lock [skip ci]"
+        git push origin HEAD:${GITHUB_REF}
 
     # 3️⃣ Install stable Rust toolchain for host (x86_64)
     - name: Set up Rust (host)
