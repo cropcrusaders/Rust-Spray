@@ -1,19 +1,24 @@
 name: RustSpray CI
 
+# Trigger the workflow on push or pull request to the main branch
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
 
+# Define the job
 jobs:
   build-and-test:
+    # Use the latest Ubuntu runner
     runs-on: ubuntu-latest
-    steps:
-    # Step 1: Check out the repository
-    - uses: actions/checkout@v3
 
-    # Step 2: Set up Rust toolchain with the ARM target
+    steps:
+    # Step 1: Check out the repository code
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    # Step 2: Set up the Rust toolchain with the ARM target
     - name: Install Rust
       uses: actions-rs/toolchain@v1
       with:
@@ -25,7 +30,12 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libopencv-dev libclang-dev clang
+        sudo apt-get install -y \
+          gcc-aarch64-linux-gnu \
+          g++-aarch64-linux-gnu \
+          libopencv-dev \
+          libclang-dev \
+          clang
 
     # Step 4: Cache Rust dependencies to speed up builds
     - name: Cache Rust dependencies
@@ -54,11 +64,7 @@ jobs:
 
     # Step 7: Upload the compiled binary as an artifact
     - name: Upload binary
-      uses: actions/upload-artifact@2f8e54208210a422b2efd51efaa6bd6d7ca8920f # Pin to specific SHA for v3.1.3
+      uses: actions/upload-artifact@v3
       with:
         name: rustspray-binary
-        path: target/aarch64-unknown-linux-gnu/release/rustspray
-      # Add retry logic for transient failures
-      continue-on-error: true
-      retry: 3
-      retry-delay: 5
+        path: target/aarch64-unknown-linux-gnu/release/rustspraywa 
