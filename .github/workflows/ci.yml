@@ -26,7 +26,7 @@ jobs:
         cargo generate-lockfile      # rewrites Cargo.lock if needed
 
         # When running in a fork or PR, just fail if the lock changed.
-        if [[ "$GITHUB_REPOSITORY" != "CropCrusaders/Rust-Spray" ]]; then
+        if [[ "$GITHUB_REPOSITORY" != "CropCrusaders/Rust-Spray" || "$GITHUB_EVENT_NAME" == "pull_request" ]]; the
           if ! git diff --quiet Cargo.lock; then
             echo "::error::Cargo.lock is stale. Run 'cargo generate-lockfile' and commit the change."
             exit 1
