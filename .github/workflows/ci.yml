@@ -52,11 +52,11 @@ jobs:
 
     # 7️⃣ Cross-compile for Raspberry Pi 5 / generic ARM64 Linux
     - name: Build for aarch64
-      run: cross build --release --target aarch64-unknown-linux-gnu
+      run: cross build --release --target aarch64-unknown-linux-
 
-    # 8️⃣ Upload the binary
+          # 8️⃣ Upload the binary
     - name: Upload binary
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4      # ← was @v3
       with:
         name: rustspray-aarch64
         path: target/aarch64-unknown-linux-gnu/release/rustspray
