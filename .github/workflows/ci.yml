@@ -9,19 +9,30 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
-    # 1️⃣ Checkout
+    # 1️⃣ Checkout repository
     - name: Checkout
       uses: actions/checkout@v4
 
-    # 2️⃣ Install stable Rust for the host runner (x86_64)
+    # 2️⃣ 🔒 Verify Cargo.lock is up-to-date
+    - name: Verify Cargo.lock
+      run: |
+        cargo generate-lockfile          # rewrites lock if needed
+        if ! git diff --exit-code Cargo.lock; then
+          echo "::error::Cargo.lock is stale. Run 'cargo generate-lockfile' and commit the change."
+          exit 1
+        fi
+
+    # 3️⃣ Install stable Rust toolchain for host (x86_64)
     - name: Set up Rust (host)
       uses: dtolnay/rust-toolchain@v1
       with:
         toolchain: stable
+        components: clippy,rustfmt
 
-    # 3️⃣ Cache host build artifacts
+    # 4️⃣ Cache host build artifacts
     - name: Cache cargo (host)
       uses: actions/cache@v3
       with:
@@ -31,15 +42,21 @@ jobs:
           target
         key: ${{ runner.os }}-cargo-host-${{ hashFiles('**/Cargo.lock') }}
 
-    # 4️⃣ Run tests on x86_64
+    # 5️⃣ Clippy + fmt (optional static checks)
+    - name: Lint (clippy)
+      run: cargo clippy --all-targets --all-features -- -D warnings
+    - name: Format check
+      run: cargo fmt -- --check
+
+    # 6️⃣ Run unit & integration tests on host
     - name: Unit tests (host)
       run: cargo test --all-targets --all-features
 
-    # 5️⃣ Install cross-rs (handles toolchains + OpenCV for us)
+    # 7️⃣ Install cross-rs for cross-compilation
     - name: Install cross
-      run: cargo install cross
+      run: cargo install cross --git https://github.com/cross-rs/cross
 
-    # 6️⃣ Cache ARM64 build artifacts separately
+    # 8️⃣ Cache AArch64 build artifacts
     - name: Cache cargo (aarch64)
       uses: actions/cache@v3
       with:
@@ -50,13 +67,13 @@ jobs:
           target
         key: ${{ runner.os }}-cargo-aarch64-${{ hashFiles('**/Cargo.lock') }}
 
-    # 7️⃣ Cross-compile for Raspberry Pi 5 / generic ARM64 Linux
-    - name: Build for aarch64
-      run: cross build --release --target aarch64-unknown-linux-
+    # 9️⃣ Build release binary for Raspberry Pi (ARM64)
+    - name: Build for aarch64-unknown-linux-gnu
+      run: cross build --release --target aarch64-unknown-linux-gnu
 
-          # 8️⃣ Upload the binary
+    # 🔟 Upload the compiled ARM binary as an artifact
     - name: Upload binary
-      uses: actions/upload-artifact@v4      # ← was @v3
+      uses: actions/upload-artifact@v4
       with:
         name: rustspray-aarch64
         path: target/aarch64-unknown-linux-gnu/release/rustspray
