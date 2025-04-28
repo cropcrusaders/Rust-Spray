@@ -1,0 +1,10 @@
+[package]
+name = "rustspray"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "A Rust-based camera spraying system for precision weed control in agriculture"
+repository = ""
+readme = "README.md"
+keywords = ["agriculture", "precision-farming", "weed-control", "rust", "opencv"]
+categories = ["hardware", "embedded", "image-processing
