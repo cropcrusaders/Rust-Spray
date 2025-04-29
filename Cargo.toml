@@ -14,9 +14,8 @@ categories  = ["hardware", "embedded", "science", "image-processing"]
 [dependencies]
 
 # ⬥ Computer vision & image processing
-#  - keep bindings light: no viz, no aruco, no qt/vtk dependency explosion
+#    keep bindings light: no viz/aruco/qt/vtk
 opencv = { version = "0.89", default-features = false, features = [
-    "buildtime-bindgen",
     "core",
     "imgproc",
     "highgui",
@@ -42,8 +41,7 @@ rppal = { version = "0.15", optional = true }
 # ────────────────────────────────────────────────────────────────────────────
 [features]
 
-# Build with GPIO support on ARM by default; desktop users disable via
-#   cargo build --no-default-features
+# Enable GPIO support by default on ARM; desktop users disable via --no-default-features
 default    = ["with-rppal"]
 with-rppal = ["rppal"]
 
