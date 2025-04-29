@@ -1,11 +1,11 @@
 name: Refresh Cargo.lock PR
 
 on:
-  workflow_dispatch:         # can be triggered manually
+  workflow_dispatch:
   schedule:
-    - cron: "0 3 * * *"       # optional: run every day at 3 AM UTC
+    - cron: "0 3 * * *"       # optional: run nightly
   push:
-    branches: [main]          # or trigger after push (optional)
+    branches: [main]
 
 permissions:
   contents: write
@@ -20,15 +20,15 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0        # important: need full history to push branches
+        fetch-depth: 0
 
     - name: Install Rust
       uses: dtolnay/rust-toolchain@v1
       with:
         toolchain: stable
 
-    - name: Install GitHub CLI
-      uses: cli/cli-action@v2
+    - name: Check GitHub CLI
+      run: gh --version
 
     - name: Generate Cargo.lock
       run: cargo generate-lockfile
