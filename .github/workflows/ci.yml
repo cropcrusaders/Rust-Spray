@@ -6,8 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+# Let the workflow push commits (Cargo.lock refresh) and read/write PRs if you call gh
 permissions:
-  contents: write      # So GitHub Actions can push if needed
+  contents: write
+  pull-requests: write
 
 jobs:
   build-and-test:
@@ -15,72 +17,69 @@ jobs:
     timeout-minutes: 30
 
     steps:
-    # 1️⃣ Checkout repository
+    # 1️⃣ Checkout source
     - name: Checkout
       uses: actions/checkout@v4
 
-    # 2️⃣ 🔒 Refresh & (optionally) commit Cargo.lock
+    # 2️⃣ System deps for clang-sys (libclang / llvm-config)
+    - name: Install LLVM dev headers
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y llvm-dev      # -> /usr/bin/llvm-config
+
+    # 3️⃣ Optionally refresh Cargo.lock and auto-commit on main
     - name: Refresh Cargo.lock
       env:
-        GH_TOKEN: ${{ secrets.PAT_PUSH }}
+        GH_TOKEN: ${{ secrets.PAT_PUSH }}     # Fine-grained PAT with contents:write
       run: |
         set -euo pipefail
-
-        cargo generate-lockfile      # rewrites Cargo.lock if needed
-
-        # When running in a fork or PR, just fail if the lock changed.
+        cargo generate-lockfile
+        # For forks / PRs just error if stale
         if [[ "$GITHUB_REPOSITORY" != "CropCrusaders/Rust-Spray" || "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
-          if ! git diff --quiet Cargo.lock; then
-            echo "::error::Cargo.lock is stale. Run 'cargo generate-lockfile' and commit the change."
-            exit 1
-          fi
-          exit 0
+          git diff --quiet Cargo.lock && exit 0
+          echo "::error::Cargo.lock is stale. Run 'cargo generate-lockfile'."
+          exit 1
         fi
-
-        # We’re in the main repo: auto-commit any changes.
+        # Auto-commit on main repo
         if ! git diff --quiet Cargo.lock; then
-          echo "Updating stale Cargo.lock and pushing commit…"
           git config user.name  "GitHub Actions"
           git config user.email "actions@github.com"
           git add Cargo.lock
           git commit -m "ci: refresh Cargo.lock [skip ci]"
           git push origin HEAD:${GITHUB_REF}
-        else
-          echo "Cargo.lock is already up-to-date."
         fi
 
-    # 3️⃣ Install stable Rust toolchain for host (x86_64)
+    # 4️⃣ Rust toolchain (host = x86_64)
     - name: Set up Rust (host)
       uses: dtolnay/rust-toolchain@v1
       with:
         toolchain: stable
         components: clippy,rustfmt
 
-    # 4️⃣ Cache host build artifacts
+    # 5️⃣ Cache host artefacts (exclude ARM target dir to keep cache small)
     - name: Cache cargo (host)
       uses: actions/cache@v3
       with:
         path: |
           ~/.cargo/registry
           ~/.cargo/git
-          target
+          target/debug
+          target/release
         key: ${{ runner.os }}-cargo-host-${{ hashFiles('**/Cargo.lock') }}
 
-    # 5️⃣ Lint checks
+    # 6️⃣ Lint + fmt + tests on host
     - name: Lint (clippy)
       run: cargo clippy --all-targets --all-features -- -D warnings
     - name: Format check
       run: cargo fmt -- --check
-
-    # 6️⃣ Unit tests
     - name: Unit tests (host)
       run: cargo test --all-targets --all-features
 
-    # 7️⃣ Install cross-rs for cross-compilation
+    # 7️⃣ Install cross for ARM64 build (pin tag for reproducibility)
     - name: Install cross
-      run: cargo install cross --git https://github.com/cross-rs/cross
+      run: cargo install cross --git https://github.com/cross-rs/cross --tag 0.2.5
 
-    # 8️⃣ Cache AArch64 build artifacts
+    # 8️⃣ Cache ARM64 artefacts
     - name: Cache cargo (aarch64)
       uses: actions/cache@v3
       with:
@@ -88,14 +87,14 @@ jobs:
           ~/.cross
           ~/.cargo/registry
           ~/.cargo/git
-          target
+          target/aarch64-unknown-linux-gnu
         key: ${{ runner.os }}-cargo-aarch64-${{ hashFiles('**/Cargo.lock') }}
 
-    # 9️⃣ Build release binary for Raspberry Pi (ARM64)
-    - name: Build for aarch64-unknown-linux-gnu
+    # 9️⃣ Build release for Raspberry Pi / generic ARM64 Linux
+    - name: Build (aarch64-unknown-linux-gnu)
       run: cross build --release --target aarch64-unknown-linux-gnu
 
-    # 🔟 Upload ARM binary
+    # 🔟 Upload the binary as a CI artifact
     - name: Upload binary
       uses: actions/upload-artifact@v4
       with:
