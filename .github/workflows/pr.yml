@@ -1,0 +1,58 @@
+name: Refresh Cargo.lock PR
+
+on:
+  workflow_dispatch:         # can be triggered manually
+  schedule:
+    - cron: "0 3 * * *"       # optional: run every day at 3 AM UTC
+  push:
+    branches: [main]          # or trigger after push (optional)
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  refresh-lockfile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0        # important: need full history to push branches
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@v1
+      with:
+        toolchain: stable
+
+    - name: Install GitHub CLI
+      uses: cli/gh-action@v2
+
+    - name: Generate Cargo.lock
+      run: cargo generate-lockfile
+
+    - name: Detect if Cargo.lock changed
+      id: cargo_diff
+      run: |
+        if git diff --quiet Cargo.lock; then
+          echo "no_changes=true" >> $GITHUB_ENV
+        else
+          echo "no_changes=false" >> $GITHUB_ENV
+        fi
+
+    - name: Create branch, commit and open PR
+      if: env.no_changes == 'false'
+      run: |
+        BRANCH="lockfix/refresh-$(date +%Y-%m-%d-%H%M)"
+        git checkout -b "$BRANCH"
+
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+        git add Cargo.lock
+        git commit -m "chore: refresh Cargo.lock"
+        git push origin "$BRANCH"
+
+        gh pr create --title "chore: refresh Cargo.lock" --body "Automated lockfile refresh" --head "$BRANCH" --base "main"
