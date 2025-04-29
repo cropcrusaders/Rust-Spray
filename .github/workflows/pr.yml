@@ -1,58 +1,75 @@
 name: Refresh Cargo.lock PR
 
+# ──────────────────────── Triggers ────────────────────────
 on:
-  workflow_dispatch:
+  workflow_dispatch:                # manual “Run workflow” button
   schedule:
-    - cron: "0 3 * * *"       # optional: run nightly
+    - cron: "0 3 * * *"             # nightly at 03:00 UTC  (adjust if you like)
   push:
-    branches: [main]
+    branches: [main]                # also run after every push to main
 
+# ────────────────────── Permissions ───────────────────────
 permissions:
-  contents: write
-  pull-requests: write
+  contents: write                   # allow pushing branches
+  pull-requests: write              # allow opening PRs
 
+# ───────────────────────── Job ────────────────────────────
 jobs:
   refresh-lockfile:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
-    - name: Checkout
+    # 1️⃣  Checkout full history so we can create branches
+    - name: Checkout repository
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
 
+    # 2️⃣  Install stable Rust toolchain
     - name: Install Rust
       uses: dtolnay/rust-toolchain@v1
       with:
         toolchain: stable
 
+    # 3️⃣  Ensure GitHub CLI is available (pre-installed on runners)
     - name: Check GitHub CLI
       run: gh --version
 
+    # 4️⃣  Regenerate Cargo.lock
     - name: Generate Cargo.lock
       run: cargo generate-lockfile
 
-    - name: Detect if Cargo.lock changed
+    # 5️⃣  Detect whether Cargo.lock changed
+    - name: Detect changes
       id: cargo_diff
       run: |
         if git diff --quiet Cargo.lock; then
-          echo "no_changes=true" >> $GITHUB_ENV
+          echo "no_changes=true" >> "$GITHUB_ENV"
         else
-          echo "no_changes=false" >> $GITHUB_ENV
+          echo "no_changes=false" >> "$GITHUB_ENV"
         fi
 
+    # 6️⃣  If changed, commit to new branch & open PR
     - name: Create branch, commit and open PR
       if: env.no_changes == 'false'
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}     # authenticate gh CLI
       run: |
+        # unique branch name
         BRANCH="lockfix/refresh-$(date +%Y-%m-%d-%H%M)"
         git checkout -b "$BRANCH"
 
-        git config user.name "github-actions[bot]"
+        # commit the updated lockfile
+        git config user.name  "github-actions[bot]"
         git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
         git add Cargo.lock
         git commit -m "chore: refresh Cargo.lock"
         git push origin "$BRANCH"
 
-        gh pr create --title "chore: refresh Cargo.lock" --body "Automated lockfile refresh" --head "$BRANCH" --base "main"
+        # open a pull request
+        gh pr create \
+          --title "chore: refresh Cargo.lock" \
+          --body  "Automated lockfile refresh" \
+          --head  "$BRANCH" \
+          --base  "main"
