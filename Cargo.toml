@@ -14,8 +14,7 @@ categories  = ["hardware", "embedded", "science", "image-processing"]
 [dependencies]
 
 # ⬥ Computer vision & image processing
-#    No per-module cargo features exist; module list is controlled by env var.
-opencv = { version = "0.89", default-features = false, features = ["clang-runtime"] }
+opencv = "0.89"          # enable all standard OpenCV Rust-bindings
 
 # ⬥ Configuration loading
 serde = { version = "1.0", features = ["derive"] }
@@ -29,6 +28,10 @@ thiserror  = "1.0"
 
 # ⬥ Raspberry Pi GPIO (optional)
 rppal = { version = "0.15", optional = true }
+
+[features]
+default    = ["with-rppal"]
+with-rppal = ["rppal"]
 
 # ────────────────────────────────────────────────────────────────────────────
 [features]
