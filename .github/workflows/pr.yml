@@ -54,7 +54,7 @@ jobs:
     - name: Create branch, commit and open PR
       if: env.no_changes == 'false'
       env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}     # authenticate gh CLI
+        GH_TOKEN: ${{ secrets.PAT_PUSH}}     # authenticate gh CLI
       run: |
         # unique branch name
         BRANCH="lockfix/refresh-$(date +%Y-%m-%d-%H%M)"
