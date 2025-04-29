@@ -4,11 +4,23 @@ use opencv::{
     types::VectorOfVectorOfPoint,
     Result,
 };
-use crate::utils::algorithms::exg;
+use std::collections::HashMap;
+use crate::utils::algorithms::{
+    exg, exgr, maxg, nexg, exhsv, hsv, gndvi,
+};
+
+// Type aliases for algorithm functions
+type AlgorithmFn = fn(&Mat) -> Mat;
+type AlgorithmFnWithParams = fn(
+    &Mat,
+    i32, i32, i32, i32, i32, i32, bool,
+) -> Result<(Mat, bool)>;
 
 pub struct GreenOnBrown {
     algorithm: String,
     kernel: Mat,
+    algorithms: HashMap<String, AlgorithmFn>,
+    algorithms_with_params: HashMap<String, AlgorithmFnWithParams>,
 }
 
 impl GreenOnBrown {
@@ -18,9 +30,24 @@ impl GreenOnBrown {
             Size::new(3, 3),
             Point::new(-1, -1),
         )?;
+
+        // Map algorithm names to their corresponding functions
+        let mut algorithms = HashMap::new();
+        algorithms.insert("exg".to_string(), exg as AlgorithmFn);
+        algorithms.insert("exgr".to_string(), exgr as AlgorithmFn);
+        algorithms.insert("maxg".to_string(), maxg as AlgorithmFn);
+        algorithms.insert("nexg".to_string(), nexg as AlgorithmFn);
+        algorithms.insert("gndvi".to_string(), gndvi as AlgorithmFn);
+
+        let mut algorithms_with_params = HashMap::new();
+        algorithms_with_params.insert("exhsv".to_string(), exhsv as AlgorithmFnWithParams);
+        algorithms_with_params.insert("hsv".to_string(), hsv as AlgorithmFnWithParams);
+
         Ok(GreenOnBrown {
             algorithm: algorithm.to_string(),
             kernel,
+            algorithms,
+            algorithms_with_params,
         })
     }
 
@@ -41,21 +68,88 @@ impl GreenOnBrown {
         invert_hue: bool,
         label: &str,
     ) -> Result<(VectorOfVectorOfPoint, Vec<[i32; 4]>, Vec<[i32; 2]>, Mat)> {
-        let mut output = exg(image);
-        let mut threshold_out = Mat::default();
-        imgproc::threshold(&output, &mut threshold_out, 30.0, 255.0, imgproc::THRESH_BINARY)?;
+        let mut threshed_already = false;
+        let mut output: Mat;
 
+        // Select and apply the appropriate algorithm
+        if let Some(func) = self.algorithms_with_params.get(algorithm) {
+            let (result, threshed) = func(
+                image,
+                hue_min,
+                hue_max,
+                brightness_min,
+                brightness_max,
+                saturation_min,
+                saturation_max,
+                invert_hue,
+            )?;
+            output = result;
+            threshed_already = threshed;
+        } else {
+            let func = self.algorithms.get(algorithm).unwrap_or(&exg);
+            output = func(image);
+        }
+
+        let mut weed_centres: Vec<[i32; 2]> = Vec::new();
+        let mut boxes: Vec<[i32; 4]> = Vec::new();
+
+        // Apply thresholding if not already done by the algorithm
+        if !threshed_already {
+            // Clip the output to the specified range and convert to 8-bit unsigned
+            let mut clipped = Mat::default();
+            core::in_range(&output, &Scalar::from(exg_min as f64), &Scalar::from(exg_max as f64), &mut clipped)?;
+            output = Mat::default();
+            clipped.convert_to(&mut output, core::CV_8U, 1.0, 0.0)?;
+
+            // Apply adaptive thresholding
+            let mut threshold_out = Mat::default();
+            imgproc::adaptive_threshold(
+                &output,
+                &mut threshold_out,
+                255.0,
+                imgproc::ADAPTIVE_THRESH_GAUSSIAN_C,
+                imgproc::THRESH_BINARY_INV,
+                31,
+                2.0,
+            )?;
+
+            // Morphological closing to reduce noise
+            imgproc::morphology_ex(
+                &threshold_out,
+                &mut threshold_out,
+                imgproc::MORPH_CLOSE,
+                &self.kernel,
+                Point::new(-1, -1),
+                1,
+                core::BORDER_CONSTANT,
+                Scalar::default(),
+            )?;
+            output = threshold_out;
+        } else {
+            // If already thresholded (e.g., by HSV), apply more aggressive morphological closing
+            imgproc::morphology_ex(
+                &output,
+                &mut output,
+                imgproc::MORPH_CLOSE,
+                &self.kernel,
+                Point::new(-1, -1),
+                5,
+                core::BORDER_CONSTANT,
+                Scalar::default(),
+            )?;
+        }
+
+        // Find contours in the thresholded image
         let mut contours = VectorOfVectorOfPoint::new();
         imgproc::find_contours(
-            &threshold_out,
+            &output,
             &mut contours,
             imgproc::RETR_EXTERNAL,
             imgproc::CHAIN_APPROX_SIMPLE,
             Point::new(0, 0),
         )?;
 
-        let mut boxes = Vec::new();
-        let mut weed_centres = Vec::new();
+        // Filter contours based on area and compute bounding boxes and centers
         for contour in contours.iter() {
             let area = imgproc::contour_area(&contour, false)?;
             if area > min_area {
@@ -65,6 +159,7 @@ impl GreenOnBrown {
             }
         }
 
+        // Create an output image with annotations if display is enabled
         let image_out = if show_display {
             let mut img_copy = image.clone();
             for box_coords in &boxes {
