@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: write      # So GitHub Actions can push if needed
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -16,7 +19,7 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-       # 2️⃣ 🔒 Refresh & (optionally) commit Cargo.lock
+    # 2️⃣ 🔒 Refresh & (optionally) commit Cargo.lock
     - name: Refresh Cargo.lock
       env:
         GH_TOKEN: ${{ secrets.PAT_PUSH }}
@@ -26,7 +29,7 @@ jobs:
         cargo generate-lockfile      # rewrites Cargo.lock if needed
 
         # When running in a fork or PR, just fail if the lock changed.
-        if [[ "$GITHUB_REPOSITORY" != "CropCrusaders/Rust-Spray" || "$GITHUB_EVENT_NAME" == "pull_request" ]]; the
+        if [[ "$GITHUB_REPOSITORY" != "CropCrusaders/Rust-Spray" || "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
           if ! git diff --quiet Cargo.lock; then
             echo "::error::Cargo.lock is stale. Run 'cargo generate-lockfile' and commit the change."
             exit 1
@@ -35,17 +38,16 @@ jobs:
         fi
 
         # We’re in the main repo: auto-commit any changes.
-        if git diff --quiet Cargo.lock; then
-          echo "Cargo.lock already up-to-date."
-          exit 0
+        if ! git diff --quiet Cargo.lock; then
+          echo "Updating stale Cargo.lock and pushing commit…"
+          git config user.name  "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add Cargo.lock
+          git commit -m "ci: refresh Cargo.lock [skip ci]"
+          git push origin HEAD:${GITHUB_REF}
+        else
+          echo "Cargo.lock is already up-to-date."
         fi
-
-        echo "Updating stale Cargo.lock and pushing commit…"
-        git config user.name  "GitHub Actions"
-        git config user.email "actions@github.com"
-        git add Cargo.lock
-        git commit -m "ci: refresh Cargo.lock [skip ci]"
-        git push origin HEAD:${GITHUB_REF}
 
     # 3️⃣ Install stable Rust toolchain for host (x86_64)
     - name: Set up Rust (host)
@@ -64,13 +66,13 @@ jobs:
           target
         key: ${{ runner.os }}-cargo-host-${{ hashFiles('**/Cargo.lock') }}
 
-    # 5️⃣ Clippy + fmt (optional static checks)
+    # 5️⃣ Lint checks
     - name: Lint (clippy)
       run: cargo clippy --all-targets --all-features -- -D warnings
     - name: Format check
       run: cargo fmt -- --check
 
-    # 6️⃣ Run unit & integration tests on host
+    # 6️⃣ Unit tests
     - name: Unit tests (host)
       run: cargo test --all-targets --all-features
 
@@ -93,7 +95,7 @@ jobs:
     - name: Build for aarch64-unknown-linux-gnu
       run: cross build --release --target aarch64-unknown-linux-gnu
 
-    # 🔟 Upload the compiled ARM binary as an artifact
+    # 🔟 Upload ARM binary
     - name: Upload binary
       uses: actions/upload-artifact@v4
       with:
