@@ -14,16 +14,8 @@ categories  = ["hardware", "embedded", "science", "image-processing"]
 [dependencies]
 
 # ⬥ Computer vision & image processing
-#    keep bindings light: no viz/aruco/qt/vtk
-opencv = { version = "0.89", default-features = false, features = [
-    "core",
-    "imgproc",
-    "highgui",
-    "videoio",
-    "imgcodecs",
-    "features2d",
-    "calib3d"
-]}
+#    No per-module cargo features exist; module list is controlled by env var.
+opencv = { version = "0.89", default-features = false, features = ["clang-runtime"] }
 
 # ⬥ Configuration loading
 serde = { version = "1.0", features = ["derive"] }
