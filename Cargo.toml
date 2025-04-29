@@ -4,36 +4,50 @@ version     = "0.1.0"
 edition     = "2021"
 license     = "MIT"
 description = "A Rust-based camera-and-sprayer system for precision weed control in agriculture"
-homepage    = "https://github.com/cropcusader/Rust-Spray"
-repository  = "https://github.com/cropcusader/Rust-Spray"
+homepage    = "https://github.com/cropcrusaders/Rust-Spray"
+repository  = "https://github.com/cropcrusaders/Rust-Spray"
 readme      = "README.md"
 keywords    = ["agriculture", "precision-farming", "weed-control", "rust", "opencv"]
 categories  = ["hardware", "embedded", "science", "image-processing"]
 
+# ────────────────────────────────────────────────────────────────────────────
 [dependencies]
-# Computer-vision & image processing
-opencv      = "0.89"
 
-# Configuration loading
-serde       = { version = "1.0", features = ["derive"] }
-toml        = "0.8"
+# ⬥ Computer vision & image processing
+#  - keep bindings light: no viz, no aruco, no qt/vtk dependency explosion
+opencv = { version = "0.89", default-features = false, features = [
+    "buildtime-bindgen",
+    "core",
+    "imgproc",
+    "highgui",
+    "videoio",
+    "imgcodecs",
+    "features2d",
+    "calib3d"
+]}
 
-# CLI, logging, and error handling
-clap        = { version = "4.5", features = ["derive"] }
-log         = "0.4"
-env_logger  = "0.11"
-thiserror   = "1.0"
+# ⬥ Configuration loading
+serde = { version = "1.0", features = ["derive"] }
+toml  = "0.8"
 
-# Raspberry Pi GPIO (optional, only makes sense on Pi)
-rppal       = { version = "0.15", optional = true }
+# ⬥ CLI, logging, error handling
+clap       = { version = "4.5", features = ["derive"] }
+log        = "0.4"
+env_logger = "0.11"
+thiserror  = "1.0"
 
+# ⬥ Raspberry Pi GPIO (optional)
+rppal = { version = "0.15", optional = true }
+
+# ────────────────────────────────────────────────────────────────────────────
 [features]
-# Build with GPIO support by default; desktop users can disable via
-#   cargo build --no-default-features
-default     = ["with-rppal"]
-with-rppal  = ["rppal"]
 
-# ---- Platform guard -------------------------------------------------
-# On non-ARM hosts we still let the crate compile, but rppal won’t be used.
+# Build with GPIO support on ARM by default; desktop users disable via
+#   cargo build --no-default-features
+default    = ["with-rppal"]
+with-rppal = ["rppal"]
+
+# ────────────────────────────────────────────────────────────────────────────
+# Platform guard: allow host compilation on non-ARM without pulling in rppal
 [target.'cfg(not(target_arch = "arm"))'.dependencies]
 rppal = { version = "0.15", optional = true }
