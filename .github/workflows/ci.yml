@@ -1,46 +1,44 @@
 name: RustSpray CI
 
 on:
-  push:
+  push:          # run on every push to main
     branches: [main]
-  pull_request:
+  pull_request:  # and on PRs targeting main
     branches: [main]
 
-# Let the workflow push commits (Cargo.lock refresh) and read/write PRs if you call gh
+# Allow this workflow to push commits (Cargo.lock refresh) and open PRs if needed
 permissions:
   contents: write
   pull-requests: write
 
 jobs:
   build-and-test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest      # ubuntu-24.04 today
     timeout-minutes: 30
 
     steps:
-    # 1️⃣ Checkout source
+    # 1️⃣  Check out source
     - name: Checkout
       uses: actions/checkout@v4
 
-    # 2️⃣ System deps for clang-sys (libclang / llvm-config)
-    - name: Install LLVM dev headers
+    # 2️⃣  System deps for clang-sys  ➜ llvm-config + libclang.so
+    - name: Install LLVM & Clang dev headers
       run: |
         sudo apt-get update
-        sudo apt-get install -y llvm-dev      # -> /usr/bin/llvm-config
+        sudo apt-get install -y llvm-dev clang libclang-dev
 
-    # 3️⃣ Optionally refresh Cargo.lock and auto-commit on main
+    # 3️⃣  Refresh Cargo.lock (auto-commit on main; hard-fail on stale in PRs)
     - name: Refresh Cargo.lock
       env:
-        GH_TOKEN: ${{ secrets.PAT_PUSH }}     # Fine-grained PAT with contents:write
+        GH_TOKEN: ${{ secrets.PAT_PUSH }}          # fine-grained PAT with contents:write
       run: |
         set -euo pipefail
         cargo generate-lockfile
-        # For forks / PRs just error if stale
         if [[ "$GITHUB_REPOSITORY" != "CropCrusaders/Rust-Spray" || "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
           git diff --quiet Cargo.lock && exit 0
           echo "::error::Cargo.lock is stale. Run 'cargo generate-lockfile'."
           exit 1
         fi
-        # Auto-commit on main repo
         if ! git diff --quiet Cargo.lock; then
           git config user.name  "GitHub Actions"
           git config user.email "actions@github.com"
@@ -49,14 +47,14 @@ jobs:
           git push origin HEAD:${GITHUB_REF}
         fi
 
-    # 4️⃣ Rust toolchain (host = x86_64)
+    # 4️⃣  Rust toolchain for the host (x86-64)
     - name: Set up Rust (host)
       uses: dtolnay/rust-toolchain@v1
       with:
         toolchain: stable
         components: clippy,rustfmt
 
-    # 5️⃣ Cache host artefacts (exclude ARM target dir to keep cache small)
+    # 5️⃣  Cache host build artefacts
     - name: Cache cargo (host)
       uses: actions/cache@v3
       with:
@@ -67,7 +65,7 @@ jobs:
           target/release
         key: ${{ runner.os }}-cargo-host-${{ hashFiles('**/Cargo.lock') }}
 
-    # 6️⃣ Lint + fmt + tests on host
+    # 6️⃣  Lint, fmt, test on host
     - name: Lint (clippy)
       run: cargo clippy --all-targets --all-features -- -D warnings
     - name: Format check
@@ -75,11 +73,11 @@ jobs:
     - name: Unit tests (host)
       run: cargo test --all-targets --all-features
 
-    # 7️⃣ Install cross for ARM64 build (pin tag for reproducibility)
+    # 7️⃣  Install cross-rs (pinned tag for reproducibility)
     - name: Install cross
       run: cargo install cross --git https://github.com/cross-rs/cross --tag 0.2.5
 
-    # 8️⃣ Cache ARM64 artefacts
+    # 8️⃣  Cache ARM64 artefacts
     - name: Cache cargo (aarch64)
       uses: actions/cache@v3
       with:
@@ -90,11 +88,11 @@ jobs:
           target/aarch64-unknown-linux-gnu
         key: ${{ runner.os }}-cargo-aarch64-${{ hashFiles('**/Cargo.lock') }}
 
-    # 9️⃣ Build release for Raspberry Pi / generic ARM64 Linux
+    # 9️⃣  Build release binary for Raspberry Pi / generic ARM64 Linux
     - name: Build (aarch64-unknown-linux-gnu)
       run: cross build --release --target aarch64-unknown-linux-gnu
 
-    # 🔟 Upload the binary as a CI artifact
+    # 🔟  Upload the ARM64 binary
     - name: Upload binary
       uses: actions/upload-artifact@v4
       with:
