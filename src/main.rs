@@ -1,5 +1,4 @@
 use clap::Parser;
-use env_logger;
 use log::info;
 use opencv::highgui;
 use std::error::Error;
@@ -16,7 +15,7 @@ mod utils;
 use camera::Camera;
 use config::Config;
 use detection::GreenOnBrown;
-use spray::Sprayer;
+use spray::SprayController;
 
 // Define command-line arguments
 #[derive(Parser)]
@@ -43,7 +42,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     info!("Configuration loaded from {}", cli.config);
 
     // Initialize the camera with settings from the configuration
-    let mut camera = Camera::new(&config.camera)?;
+    let mut camera = Camera::new(&config.camera.device)?;
     info!("Camera initialized");
 
     // Initialize the weed detection mechanism
@@ -51,8 +50,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     info!("Detection algorithm '{}' initialized", config.detection.algorithm);
 
     // Initialize the spraying hardware
-    let mut sprayer = Sprayer::new(&config.spray)?;
-    info!("Sprayer initialized");
+    let mut spray_controller = SprayController::new(config.spray.pins)?;
+    info!("Spray controller initialized");
 
     // Set up the display window if show_display is enabled
     if cli.show_display {
@@ -60,7 +59,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     // Run the main processing loop
-    run(&mut camera, &gob, &mut sprayer, &config, cli.show_display)?;
+    run(&mut camera, &gob, &mut spray_controller, &config, cli.show_display)?;
 
     Ok(())
 }
@@ -69,7 +68,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 fn run(
     camera: &mut Camera,
     gob: &GreenOnBrown,
-    sprayer: &mut Sprayer,
+    spray_controller: &mut SprayController,
     config: &Config,
     show_display: bool,
 ) -> Result<(), Box<dyn Error>> {
@@ -99,8 +98,10 @@ fn run(
 
         // Activate the sprayer if weeds are detected
         if !weed_centres.is_empty() {
-            sprayer.activate()?;
-            info!("Sprayer activated");
+            spray_controller.activate_all();
+            std::thread::sleep(std::time::Duration::from_millis(config.spray.activation_duration_ms as u64));
+            spray_controller.deactivate_all();
+            info!("Sprayers activated");
         }
 
         // Display the detection results if enabled
