@@ -77,8 +77,8 @@ fn run(
         let image = camera.capture()?;
         info!("Image captured");
 
-        // Perform weed detection on the captured image
-        let (contours, boxes, weed_centres, image_out) = gob.inference(
+        // Perform weed detection on the captured // inside your main loop, replace the binding line with:
+        let (_contours, _boxes, weed_centres, image_out) = gob.inference(
             &image,
             config.detection.exg_min,
             config.detection.exg_max,
