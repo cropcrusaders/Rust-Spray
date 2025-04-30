@@ -110,7 +110,18 @@ impl GreenOnBrown {
         let (mut mask, already_thresh) = if let Some(f) = self.simple.get(algorithm) {
             (f(frame)?, false)
         } else if let Some(f) = self.param.get(algorithm) {
-            f(frame, exg_min, exg_max, h_min, h_max, s_min, s_max, v_min, v_max, invert_hue)?
+            f(
+                frame,
+                exg_min,
+                exg_max,
+                h_min,
+                h_max,
+                s_min,
+                s_max,
+                v_min,
+                v_max,
+                invert_hue,
+            )?
         } else {
             return Err(opencv::Error::new(
                 core::StsError,
