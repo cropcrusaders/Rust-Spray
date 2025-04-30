@@ -14,7 +14,19 @@ categories  = ["hardware", "embedded", "science", "image-processing"]
 [dependencies]
 
 # ⬥ Computer vision & image processing
-opencv = "0.89"          # enable all standard OpenCV Rust-bindings
+opencv = { version = "0.89",
+           default-features = false,          # don't pull the whole world
+           features = [
+             "clang-runtime",                 # use clang to compile C++
+             "opencv-4",                      # target OpenCV-4 headers
+             # ── modules we actually call ──
+             "core",
+             "highgui",
+             "imgproc",
+             "imgcodecs",
+             "videoio",
+             "objdetect",
+           ] }
 
 # ⬥ Configuration loading
 serde = { version = "1.0", features = ["derive"] }
