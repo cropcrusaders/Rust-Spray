@@ -1,10 +1,11 @@
 use opencv::{
-    core::{self, Mat, Point, Scalar, Size, Vector},
+    core::{self, Mat, Point, Scalar, Size},
     imgproc,
+    prelude::*,                   // brings MatTraitConst for `convert_to`
     types::VectorOfVectorOfPoint,
     Result,
 };
-use std::collections::HashMap;
+
 use crate::utils::algorithms::{
     exg, exgr, maxg, nexg, exhsv, hsv, gndvi,
 };
