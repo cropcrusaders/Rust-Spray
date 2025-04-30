@@ -1,9 +1,9 @@
 //! Green-on-Brown detection front-end.
-//!
-//! • Picks a vegetation-index algorithm
-//! • Builds and thresholds a mask
-//! • Morph-cleans the mask
-//! • Returns contours, bboxes, centres, annotated frame
+//
+//  • chooses a vegetation-index algorithm
+//  • builds / thresholds a mask
+//  • cleans it with morphology
+//  • returns contours, boxes, centres, annotated frame
 
 use opencv::{
     core::{self, Mat, Point, Scalar, Size},
@@ -15,36 +15,44 @@ use std::collections::HashMap;
 
 use crate::utils::algorithms::{exg, exgr, gndvi, maxg, nexg, exhsv, hsv};
 
-/* ───────────────────────────────── type aliases ───────────────────────── */
+/* ─────────── function-pointer aliases ───────────────────────────────── */
 
 type AlgFn = fn(&Mat) -> Result<Mat>;
 type AlgFnWithParams = fn(
     &Mat,
-    i32, i32,            // exg min / max  (ignored by plain HSV)
-    i32, i32,            // hue min / max
-    i32, i32,            // sat min / max
-    i32, i32,            // val min / max
-    bool,                // invert hue?
+    i32,
+    i32, // exg min / max (ignored by plain HSV)
+    i32,
+    i32, // hue min / max
+    i32,
+    i32, // sat min / max
+    i32,
+    i32, // val min / max
+    bool, // invert hue?
 ) -> Result<(Mat, bool)>;
 
-/* Wrapper so plain HSV fits the 8-param signature */
+/* wrapper so plain HSV matches 8-arg signature */
 fn hsv_wrapper(
     src: &Mat,
-    _exg_min: i32, _exg_max: i32,
-    h_min: i32, h_max: i32,
-    s_min: i32, s_max: i32,
-    v_min: i32, v_max: i32,
+    _exg_min: i32,
+    _exg_max: i32,
+    h_min: i32,
+    h_max: i32,
+    s_min: i32,
+    s_max: i32,
+    v_min: i32,
+    v_max: i32,
     invert: bool,
 ) -> Result<(Mat, bool)> {
     hsv(src, h_min, h_max, s_min, s_max, v_min, v_max, invert)
 }
 
-/* ───────────────────────────────── struct ─────────────────────────────── */
+/* ─────────── main struct ────────────────────────────────────────────── */
 
 pub struct GreenOnBrown {
     kernel: Mat,
     simple: HashMap<String, AlgFn>,
-    param:  HashMap<String, AlgFnWithParams>,
+    param: HashMap<String, AlgFnWithParams>,
 }
 
 impl GreenOnBrown {
@@ -55,18 +63,18 @@ impl GreenOnBrown {
             Point::new(-1, -1),
         )?;
 
-        /* algorithms with no extra params */
+        /* algorithms that need no extra parameters */
         let mut simple = HashMap::new();
-        simple.insert("exg".into(),   exg   as AlgFn);
-        simple.insert("exgr".into(),  exgr  as AlgFn);
-        simple.insert("maxg".into(),  maxg  as AlgFn);
-        simple.insert("nexg".into(),  nexg  as AlgFn);
+        simple.insert("exg".into(), exg as AlgFn);
+        simple.insert("exgr".into(), exgr as AlgFn);
+        simple.insert("maxg".into(), maxg as AlgFn);
+        simple.insert("nexg".into(), nexg as AlgFn);
         simple.insert("gndvi".into(), gndvi as AlgFn);
 
-        /* algorithms that need thresholds */
+        /* algorithms that take threshold parameters */
         let mut param = HashMap::new();
-        param.insert("exhsv".into(), exhsv        as AlgFnWithParams);
-        param.insert("hsv".into(),   hsv_wrapper  as AlgFnWithParams);
+        param.insert("exhsv".into(), exhsv as AlgFnWithParams);
+        param.insert("hsv".into(), hsv_wrapper as AlgFnWithParams);
 
         if !simple.contains_key(default_alg) && !param.contains_key(default_alg) {
             return Err(opencv::Error::new(
@@ -75,7 +83,11 @@ impl GreenOnBrown {
             ));
         }
 
-        Ok(Self { kernel, simple, param })
+        Ok(Self {
+            kernel,
+            simple,
+            param,
+        })
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -84,26 +96,29 @@ impl GreenOnBrown {
         frame: &Mat,
         exg_min: i32,
         exg_max: i32,
-        h_min: i32, h_max: i32,
-        s_min: i32, s_max: i32,
-        v_min: i32, v_max: i32,
+        h_min: i32,
+        h_max: i32,
+        s_min: i32,
+        s_max: i32,
+        v_min: i32,
+        v_max: i32,
         min_area: f64,
         show_window: bool,
         algorithm: &str,
         invert_hue: bool,
         label: &str,
-    ) -> Result<(VectorOfVectorOfPoint, Vec<[i32; 4]>, Vec<[i32; 2]>, Mat)> {
-        /* 1) Build mask -------------------------------------------------- */
+    ) -> Result<(
+        VectorOfVectorOfPoint,
+        Vec<[i32; 4]>,
+        Vec<[i32; 2]>,
+        Mat,
+    )> {
+        /* 1 ─ build mask */
         let (mut mask, already_thresh) = if let Some(f) = self.simple.get(algorithm) {
             (f(frame)?, false)
         } else if let Some(f) = self.param.get(algorithm) {
             f(
-                frame,
-                exg_min, exg_max,
-                h_min,   h_max,
-                s_min,   s_max,
-                v_min,   v_max,
-                invert_hue,
+                frame, exg_min, exg_max, h_min, h_max, s_min, s_max, v_min, v_max, invert_hue,
             )?
         } else {
             return Err(opencv::Error::new(
@@ -112,7 +127,7 @@ impl GreenOnBrown {
             ));
         };
 
-        /* Threshold (write into temp to avoid borrow clash) */
+        /* threshold (use temp to appease borrow checker) */
         if !already_thresh {
             let mut tmp = Mat::default();
             imgproc::threshold(
@@ -125,33 +140,35 @@ impl GreenOnBrown {
             mask = tmp;
         }
 
-        /* 2) Morphology cleanup (use temp Mats to avoid E0502) */
+        /* 2 ─ morphology cleanup (erode then dilate, each into temp) */
         {
             let mut tmp = Mat::default();
             imgproc::erode(
-                &mask, &mut tmp,
+                &mask,
+                &mut tmp,
                 &self.kernel,
                 Point::new(-1, -1),
                 1,
                 core::BORDER_CONSTANT,
-                imgproc::morphology_default_border_value()?
+                imgproc::morphology_default_border_value()?,
             )?;
             mask = tmp;
         }
         {
             let mut tmp = Mat::default();
             imgproc::dilate(
-                &mask, &mut tmp,
+                &mask,
+                &mut tmp,
                 &self.kernel,
                 Point::new(-1, -1),
                 2,
                 core::BORDER_CONSTANT,
-                imgproc::morphology_default_border_value()?
+                imgproc::morphology_default_border_value()?,
             )?;
             mask = tmp;
         }
 
-        /* 3) Contours, boxes, centres ------------------------------------ */
+        /* 3 ─ find contours and annotate */
         let mut contours = VectorOfVectorOfPoint::new();
         imgproc::find_contours(
             &mask,
@@ -161,9 +178,48 @@ impl GreenOnBrown {
             Point::new(0, 0),
         )?;
 
-        let mut boxes   = Vec::new();
+        let mut boxes = Vec::new();
         let mut centres = Vec::new();
         let mut annotated = frame.clone();
 
         for c in contours.iter() {
-            if imgproc::contour_area
+            if imgproc::contour_area(&c, false)? < min_area {
+                continue;
+            }
+
+            let rect = imgproc::bounding_rect(&c)?;
+            boxes.push([rect.x, rect.y, rect.width, rect.height]);
+
+            let cx = rect.x + rect.width / 2;
+            let cy = rect.y + rect.height / 2;
+            centres.push([cx, cy]);
+
+            imgproc::rectangle(
+                &mut annotated,
+                rect,
+                Scalar::new(0.0, 255.0, 0.0, 0.0),
+                2,
+                imgproc::LINE_8,
+                0,
+            )?;
+            imgproc::put_text(
+                &mut annotated,
+                label,
+                Point::new(rect.x, rect.y - 3),
+                imgproc::FONT_HERSHEY_SIMPLEX,
+                0.5,
+                Scalar::new(0.0, 255.0, 0.0, 0.0),
+                1,
+                imgproc::LINE_AA,
+                false,
+            )?;
+        }
+
+        /* optional display handled by caller */
+        if show_window {
+            // main.rs calls highgui::imshow
+        }
+
+        Ok((contours, boxes, centres, annotated))
+    }
+}
