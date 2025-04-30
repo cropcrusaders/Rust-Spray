@@ -27,7 +27,7 @@ type AlgFnWithParams = fn(
     i32,
     i32, // sat min / max
     i32,
-    i32, // val min / max
+    i32,  // val min / max  ← rustfmt prefers two spaces here
     bool, // invert hue?
 ) -> Result<(Mat, bool)>;
 
@@ -111,16 +111,7 @@ impl GreenOnBrown {
             (f(frame)?, false)
         } else if let Some(f) = self.param.get(algorithm) {
             f(
-                frame,
-                exg_min,
-                exg_max,
-                h_min,
-                h_max,
-                s_min,
-                s_max,
-                v_min,
-                v_max,
-                invert_hue,
+                frame, exg_min, exg_max, h_min, h_max, s_min, s_max, v_min, v_max, invert_hue,
             )?
         } else {
             return Err(opencv::Error::new(
