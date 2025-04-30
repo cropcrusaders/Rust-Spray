@@ -1,8 +1,10 @@
 name: RustSpray CI
 
 on:
-  push:        {branches: [main]}
-  pull_request:{branches: [main]}
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: write
@@ -14,65 +16,94 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      # 1️⃣  Checkout
-      - uses: actions/checkout@v4
+    # 1️⃣  Checkout repository
+    - uses: actions/checkout@v4
 
-      # 2️⃣  Host deps (for clippy/tests)
-      - name: Host deps
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y llvm-dev clang libclang-dev libopencv-dev pkg-config
+    # 2️⃣  Host-side packages for clippy/tests
+    - name: Host dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          llvm-dev clang libclang-dev \
+          libopencv-dev pkg-config
 
-      # 3️⃣  Refresh Cargo.lock  … (unchanged)
+    # 3️⃣  Refresh Cargo.lock (auto-commit on main, fail on PR)
+    - name: Refresh Cargo.lock
+      env:
+        GH_TOKEN: ${{ secrets.PAT_PUSH }}
+      run: |
+        set -euo pipefail
+        cargo generate-lockfile
+        # On pull requests: just check it’s up-to-date
+        if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+          git diff --quiet Cargo.lock && exit 0
+          echo "::error::Cargo.lock is stale. Run 'cargo generate-lockfile'."
+          exit 1
+        fi
+        # On direct pushes to main: auto-commit if it changed
+        if ! git diff --quiet Cargo.lock; then
+          git config user.name  "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add Cargo.lock
+          git commit -m "ci: refresh Cargo.lock [skip ci]"
+          git push
+        fi
 
-      # 4️⃣  Toolchain
-      - uses: dtolnay/rust-toolchain@v1
-        with: {toolchain: stable, components: clippy,rustfmt}
+    # 4️⃣  Rust toolchain
+    - uses: dtolnay/rust-toolchain@v1
+      with:
+        toolchain: stable
+        components: clippy,rustfmt
 
-      # 5️⃣  Cache host artefacts
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target/debug
-            target/release
-          key: ${{ runner.os }}-cargo-host-${{ hashFiles('**/Cargo.lock') }}
+    # 5️⃣  Cache host artefacts
+    - name: Cache cargo (host)
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target/debug
+          target/release
+        key: ${{ runner.os }}-cargo-host-${{ hashFiles('**/Cargo.lock') }}
 
-      # 6️⃣  Lint / fmt / tests
-      - name: Clippy
-        env: {OPENCV_PKGCONFIG_NAME: opencv4}
-        run: cargo clippy --all-targets --all-features -- -D warnings
+    # 6️⃣  Lint, format, unit tests (host)
+    - name: Clippy
+      env:
+        OPENCV_PKGCONFIG_NAME: opencv4
+      run: cargo clippy --all-targets --all-features -- -D warnings
 
-      - run: cargo fmt -- --check
-        name: Format check
+    - name: Format check
+      run: cargo fmt -- --check
 
-      - name: Unit tests
-        env: {OPENCV_PKGCONFIG_NAME: opencv4}
-        run: cargo test --all-targets --all-features
+    - name: Unit tests
+      env:
+        OPENCV_PKGCONFIG_NAME: opencv4
+      run: cargo test --all-targets --all-features
 
-      # 7️⃣  Install cross
-      - run: cargo install cross --git https://github.com/cross-rs/cross --tag v0.2.4
-        name: Install cross
+    # 7️⃣  Install cross
+    - name: Install cross
+      run: cargo install cross --git https://github.com/cross-rs/cross --tag v0.2.4
 
-      # 8️⃣  Cache aarch64 artefacts (incl. OpenCV build)
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cross
-            ~/.cargo/registry
-            ~/.cargo/git
-            target/aarch64-unknown-linux-gnu
-          key: ${{ runner.os }}-cargo-aarch64-${{ hashFiles('**/Cargo.lock') }}
+    # 8️⃣  Cache ARM64 artefacts (includes OpenCV build)
+    - name: Cache cargo (aarch64)
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cross
+          ~/.cargo/registry
+          ~/.cargo/git
+          target/aarch64-unknown-linux-gnu
+        key: ${{ runner.os }}-cargo-aarch64-${{ hashFiles('**/Cargo.lock') }}
 
-      # 9️⃣  Build release binary for ARM64, forwarding env vars to cross
-      - name: Build (aarch64-unknown-linux-gnu)
-        run: |
-          cross build --release --target aarch64-unknown-linux-gnu \
-            --env OPENCV_DOWNLOAD=1 --env OPENCV_DISABLE_PROBES=1
+    # 9️⃣  Build release binary for ARM64, telling opencv crate to self-build
+    - name: Build (aarch64-unknown-linux-gnu)
+      run: |
+        cross build --release --target aarch64-unknown-linux-gnu \
+          --env OPENCV_DOWNLOAD=1 --env OPENCV_DISABLE_PROBES=1
 
-      # 🔟  Upload artefact
-      - uses: actions/upload-artifact@v4
-        with:
-          name: rustspray-aarch64
-          path: target/aarch64-unknown-linux-gnu/release/rustspray
+    # 🔟  Upload artefact
+    - name: Upload binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: rustspray-aarch64
+        path: target/aarch64-unknown-linux-gnu/release/rustspray
