@@ -13,25 +13,25 @@ use opencv::{
 };
 use std::collections::HashMap;
 
-use crate::utils::algorithms::{exg, exgr, gndvi, maxg, nexg, exhsv, hsv};
+use crate::utils::algorithms::{exg, exgr, exhsv, gndvi, hsv, maxg, nexg};
 
-/* ─────────── function-pointer aliases ───────────────────────────────── */
+/* ─────────────────────── function-pointer aliases ─────────────────────── */
 
 type AlgFn = fn(&Mat) -> Result<Mat>;
 type AlgFnWithParams = fn(
     &Mat,
     i32,
-    i32, // exg min / max (ignored by plain HSV)
+    i32,  // exg min / max (ignored by plain HSV)
     i32,
-    i32, // hue min / max
+    i32,  // hue min / max
     i32,
-    i32, // sat min / max
+    i32,  // sat min / max
     i32,
-    i32, // val min / max
+    i32,  // val min / max
     bool, // invert hue?
 ) -> Result<(Mat, bool)>;
 
-/* wrapper so plain HSV matches 8-arg signature */
+/* wrap plain HSV so it matches the 8-param signature */
 fn hsv_wrapper(
     src: &Mat,
     _exg_min: i32,
@@ -47,7 +47,7 @@ fn hsv_wrapper(
     hsv(src, h_min, h_max, s_min, s_max, v_min, v_max, invert)
 }
 
-/* ─────────── main struct ────────────────────────────────────────────── */
+/* ───────────────────────────── struct ──────────────────────────────── */
 
 pub struct GreenOnBrown {
     kernel: Mat,
@@ -63,7 +63,7 @@ impl GreenOnBrown {
             Point::new(-1, -1),
         )?;
 
-        /* algorithms that need no extra parameters */
+        /* algorithms with no extra parameters */
         let mut simple = HashMap::new();
         simple.insert("exg".into(), exg as AlgFn);
         simple.insert("exgr".into(), exgr as AlgFn);
@@ -71,7 +71,7 @@ impl GreenOnBrown {
         simple.insert("nexg".into(), nexg as AlgFn);
         simple.insert("gndvi".into(), gndvi as AlgFn);
 
-        /* algorithms that take threshold parameters */
+        /* algorithms that take thresholds */
         let mut param = HashMap::new();
         param.insert("exhsv".into(), exhsv as AlgFnWithParams);
         param.insert("hsv".into(), hsv_wrapper as AlgFnWithParams);
@@ -107,18 +107,22 @@ impl GreenOnBrown {
         algorithm: &str,
         invert_hue: bool,
         label: &str,
-    ) -> Result<(
-        VectorOfVectorOfPoint,
-        Vec<[i32; 4]>,
-        Vec<[i32; 2]>,
-        Mat,
-    )> {
+    ) -> Result<(VectorOfVectorOfPoint, Vec<[i32; 4]>, Vec<[i32; 2]>, Mat)> {
         /* 1 ─ build mask */
         let (mut mask, already_thresh) = if let Some(f) = self.simple.get(algorithm) {
             (f(frame)?, false)
         } else if let Some(f) = self.param.get(algorithm) {
             f(
-                frame, exg_min, exg_max, h_min, h_max, s_min, s_max, v_min, v_max, invert_hue,
+                frame,
+                exg_min,
+                exg_max,
+                h_min,
+                h_max,
+                s_min,
+                s_max,
+                v_min,
+                v_max,
+                invert_hue,
             )?
         } else {
             return Err(opencv::Error::new(
@@ -127,7 +131,7 @@ impl GreenOnBrown {
             ));
         };
 
-        /* threshold (use temp to appease borrow checker) */
+        /* threshold (write into temp to satisfy borrow checker) */
         if !already_thresh {
             let mut tmp = Mat::default();
             imgproc::threshold(
@@ -140,7 +144,7 @@ impl GreenOnBrown {
             mask = tmp;
         }
 
-        /* 2 ─ morphology cleanup (erode then dilate, each into temp) */
+        /* 2 ─ morphology cleanup */
         {
             let mut tmp = Mat::default();
             imgproc::erode(
@@ -168,7 +172,7 @@ impl GreenOnBrown {
             mask = tmp;
         }
 
-        /* 3 ─ find contours and annotate */
+        /* 3 ─ contours, boxes, centres */
         let mut contours = VectorOfVectorOfPoint::new();
         imgproc::find_contours(
             &mask,
@@ -190,9 +194,7 @@ impl GreenOnBrown {
             let rect = imgproc::bounding_rect(&c)?;
             boxes.push([rect.x, rect.y, rect.width, rect.height]);
 
-            let cx = rect.x + rect.width / 2;
-            let cy = rect.y + rect.height / 2;
-            centres.push([cx, cy]);
+            centres.push([rect.x + rect.width / 2, rect.y + rect.height / 2]);
 
             imgproc::rectangle(
                 &mut annotated,
@@ -215,9 +217,8 @@ impl GreenOnBrown {
             )?;
         }
 
-        /* optional display handled by caller */
         if show_window {
-            // main.rs calls highgui::imshow
+            // caller handles display
         }
 
         Ok((contours, boxes, centres, annotated))
