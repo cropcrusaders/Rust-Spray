@@ -81,9 +81,10 @@ jobs:
       run: cargo test --all-targets --all-features
 
     # 7️⃣  Install cross for ARM64 build
-    - name: Install cross
-      run: cargo install cross --git https://github.com/cross-rs/cross --tag 0.2.5
 
+     - name: Install cross
+      run: cargo install cross --git https://github.com/cross-rs/cross --tag v0.2.4
+  
     # 8️⃣  Cache ARM artefacts
     - name: Cache cargo (aarch64)
       uses: actions/cache@v3
