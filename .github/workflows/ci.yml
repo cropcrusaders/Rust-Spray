@@ -16,17 +16,16 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      # 1️⃣  Checkout
+      # 1️⃣  Repo checkout
       - uses: actions/checkout@v4
 
-      # 2️⃣  Host-side build deps (for clippy/tests)
-      - name: Install host deps
+      # 2️⃣  Host-side deps for clippy/tests (OpenCV headers, clang)
+      - name: Host deps
         run: |
           sudo apt-get update
           sudo apt-get install -y llvm-dev clang libclang-dev libopencv-dev pkg-config
 
-      # 3️⃣  Refresh Cargo.lock (same as before) …
-      # (Keep your existing “Refresh Cargo.lock” step here)
+      # 3️⃣  (refresh Cargo.lock step unchanged) …
 
       # 4️⃣  Toolchain
       - uses: dtolnay/rust-toolchain@v1
@@ -34,7 +33,7 @@ jobs:
           toolchain: stable
           components: clippy,rustfmt
 
-      # 5️⃣  Cache host
+      # 5️⃣  Cache host builds
       - uses: actions/cache@v3
         with:
           path: |
@@ -44,7 +43,7 @@ jobs:
             target/release
           key: ${{ runner.os }}-cargo-host-${{ hashFiles('**/Cargo.lock') }}
 
-      # 6️⃣  Lint / fmt / tests
+      # 6️⃣  Lint / fmt / unit tests (host)
       - name: Clippy
         env:
           OPENCV_PKGCONFIG_NAME: opencv4
@@ -62,7 +61,7 @@ jobs:
       - name: Install cross
         run: cargo install cross --git https://github.com/cross-rs/cross --tag v0.2.4
 
-      # 8️⃣  Cache ARM artefacts (incl. OpenCV build)
+      # 8️⃣  Cache ARM artefacts (includes OpenCV source build)
       - uses: actions/cache@v3
         with:
           path: |
@@ -72,11 +71,11 @@ jobs:
             target/aarch64-unknown-linux-gnu
           key: ${{ runner.os }}-cargo-aarch64-${{ hashFiles('**/Cargo.lock') }}
 
-      # 9️⃣  Build release binary for ARM64 (download+build OpenCV)
+      # 9️⃣  Build release binary for aarch64, forcing OpenCV source build
       - name: Build (aarch64-unknown-linux-gnu)
-        env:
-          OPENCV_DOWNLOAD: "1"
-          OPENCV_DISABLE_PROBES: "1"
+        env:                     # ← these env-vars go *in this block*
+          OPENCV_DOWNLOAD: "1"   # download + build OpenCV 4.x from source
+          OPENCV_DISABLE_PROBES: "1"   # skip pkg-config / cmake lookup
         run: cross build --release --target aarch64-unknown-linux-gnu
 
       # 🔟  Upload binary
