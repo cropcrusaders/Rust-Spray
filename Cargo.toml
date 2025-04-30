@@ -13,13 +13,11 @@ categories  = ["hardware", "embedded", "science", "image-processing"]
 # ────────────────────────────────────────────────────────────────────────────
 [dependencies]
 
-# ⬥ Computer vision & image processing
-opencv = { version = "0.89"
-           default-features = false,          # don't pull the whole world
+opencv = { version = "0.89",
+           default-features = false,
            features = [
-             "clang-runtime",                 # use clang to compile C++
-             "opencv-4",                      # target OpenCV-4 headers
-             # ── modules we actually call ──
+             "clang-runtime",
+             "opencv-4",
              "core",
              "highgui",
              "imgproc",
