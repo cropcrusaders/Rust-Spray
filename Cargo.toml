@@ -29,9 +29,6 @@ thiserror  = "1.0"
 # ⬥ Raspberry Pi GPIO (optional)
 rppal = { version = "0.15", optional = true }
 
-[features]
-default    = ["with-rppal"]
-with-rppal = ["rppal"]
 
 # ────────────────────────────────────────────────────────────────────────────
 [features]
