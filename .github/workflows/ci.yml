@@ -12,29 +12,52 @@ permissions:
 
 jobs:
   build-and-test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest          # 24.04 image
     timeout-minutes: 30
 
     steps:
-      # 1️⃣  Repo checkout
-      - uses: actions/checkout@v4
+      # 1️⃣  Checkout repository
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      # 2️⃣  Host-side deps for clippy/tests (OpenCV headers, clang)
-      - name: Host deps
+      # 2️⃣  Host-side build dependencies (for clippy / tests)
+      - name: Install host dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y llvm-dev clang libclang-dev libopencv-dev pkg-config
+          sudo apt-get install -y \
+            llvm-dev clang libclang-dev \
+            libopencv-dev pkg-config
 
-      # 3️⃣  (refresh Cargo.lock step unchanged) …
+      # 3️⃣  Refresh Cargo.lock (auto-commit on main, fail on PR)
+      - name: Refresh Cargo.lock
+        env:
+          GH_TOKEN: ${{ secrets.PAT_PUSH }}
+        run: |
+          set -euo pipefail
+          cargo generate-lockfile
+          if [[ "$GITHUB_REPOSITORY" != "CropCrusaders/Rust-Spray" || "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            git diff --quiet Cargo.lock && exit 0
+            echo "::error::Cargo.lock is stale. Run 'cargo generate-lockfile'."
+            exit 1
+          fi
+          if ! git diff --quiet Cargo.lock; then
+            git config user.name  "GitHub Actions"
+            git config user.email "actions@github.com"
+            git add Cargo.lock
+            git commit -m "ci: refresh Cargo.lock [skip ci]"
+            git push origin HEAD:${GITHUB_REF}
+          fi
 
-      # 4️⃣  Toolchain
-      - uses: dtolnay/rust-toolchain@v1
+      # 4️⃣  Rust toolchain (host)
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: stable
           components: clippy,rustfmt
 
-      # 5️⃣  Cache host builds
-      - uses: actions/cache@v3
+      # 5️⃣  Cache host artefacts
+      - name: Cache cargo (host)
+        uses: actions/cache@v3
         with:
           path: |
             ~/.cargo/registry
@@ -43,7 +66,7 @@ jobs:
             target/release
           key: ${{ runner.os }}-cargo-host-${{ hashFiles('**/Cargo.lock') }}
 
-      # 6️⃣  Lint / fmt / unit tests (host)
+      # 6️⃣  Lint / fmt / unit tests
       - name: Clippy
         env:
           OPENCV_PKGCONFIG_NAME: opencv4
@@ -61,8 +84,9 @@ jobs:
       - name: Install cross
         run: cargo install cross --git https://github.com/cross-rs/cross --tag v0.2.4
 
-      # 8️⃣  Cache ARM artefacts (includes OpenCV source build)
-      - uses: actions/cache@v3
+      # 8️⃣  Cache aarch64 artefacts (includes OpenCV source build)
+      - name: Cache cargo (aarch64)
+        uses: actions/cache@v3
         with:
           path: |
             ~/.cross
@@ -71,15 +95,16 @@ jobs:
             target/aarch64-unknown-linux-gnu
           key: ${{ runner.os }}-cargo-aarch64-${{ hashFiles('**/Cargo.lock') }}
 
-      # 9️⃣  Build release binary for aarch64, forcing OpenCV source build
+      # 9️⃣  Build release binary for ARM64, downloading OpenCV from source
       - name: Build (aarch64-unknown-linux-gnu)
-        env:                     # ← these env-vars go *in this block*
-          OPENCV_DOWNLOAD: "1"   # download + build OpenCV 4.x from source
-          OPENCV_DISABLE_PROBES: "1"   # skip pkg-config / cmake lookup
+        env:
+          OPENCV_DOWNLOAD: "1"        # fetch & build OpenCV inside cross image
+          OPENCV_DISABLE_PROBES: "1"  # skip pkg-config / cmake probing
         run: cross build --release --target aarch64-unknown-linux-gnu
 
-      # 🔟  Upload binary
-      - uses: actions/upload-artifact@v4
+      # 🔟  Upload the built binary
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
         with:
           name: rustspray-aarch64
           path: target/aarch64-unknown-linux-gnu/release/rustspray
