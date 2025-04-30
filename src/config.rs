@@ -35,6 +35,8 @@ pub struct DetectionConfig {
 #[derive(Deserialize)]
 pub struct SprayConfig {
     pub pins: [u8; 4],
+    /// Sprayer activation time in **milliseconds**
+    pub activation_duration_ms: u32,
 }
 
 #[derive(Deserialize)]
@@ -47,7 +49,6 @@ pub struct Config {
 impl Config {
     pub fn load(path: &str) -> Result<Self, ConfigError> {
         let contents = fs::read_to_string(path)?;
-        let config: Config = toml::from_str(&contents)?;
-        Ok(config)
+        Ok(toml::from_str(&contents)?)
     }
 }
