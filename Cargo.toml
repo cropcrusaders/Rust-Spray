@@ -14,7 +14,7 @@ categories  = ["hardware", "embedded", "science", "image-processing"]
 [dependencies]
 
 # ⬥ Computer vision & image processing
-opencv = { version = "0.89",
+opencv = { version = "0.89"
            default-features = false,          # don't pull the whole world
            features = [
              "clang-runtime",                 # use clang to compile C++
