@@ -1,9 +1,9 @@
 //! Green-on-Brown detection front-end.
-//
-//  • chooses a vegetation-index algorithm
-//  • builds / thresholds a mask
-//  • cleans it with morphology
-//  • returns contours, boxes, centres, annotated frame
+//!
+//! • chooses a vegetation-index algorithm  
+//! • builds / thresholds a mask  
+//! • cleans it with morphology  
+//! • returns contours, boxes, centres, annotated frame
 
 use opencv::{
     core::{self, Mat, Point, Scalar, Size},
@@ -15,23 +15,23 @@ use std::collections::HashMap;
 
 use crate::utils::algorithms::{exg, exgr, exhsv, gndvi, hsv, maxg, nexg};
 
-/* ─────────────────────── function-pointer aliases ─────────────────────── */
+/* ───────────── function-pointer aliases ───────────── */
 
 type AlgFn = fn(&Mat) -> Result<Mat>;
 type AlgFnWithParams = fn(
     &Mat,
     i32,
-    i32,  // exg min / max (ignored by plain HSV)
+    i32, // exg min / max (ignored by plain HSV)
     i32,
-    i32,  // hue min / max
+    i32, // hue min / max
     i32,
-    i32,  // sat min / max
+    i32, // sat min / max
     i32,
-    i32,  // val min / max
+    i32, // val min / max
     bool, // invert hue?
 ) -> Result<(Mat, bool)>;
 
-/* wrap plain HSV so it matches the 8-param signature */
+/* wrapper so plain HSV fits 8-param signature */
 fn hsv_wrapper(
     src: &Mat,
     _exg_min: i32,
@@ -47,7 +47,7 @@ fn hsv_wrapper(
     hsv(src, h_min, h_max, s_min, s_max, v_min, v_max, invert)
 }
 
-/* ───────────────────────────── struct ──────────────────────────────── */
+/* ───────────────────────── struct ───────────────────────── */
 
 pub struct GreenOnBrown {
     kernel: Mat,
@@ -63,7 +63,6 @@ impl GreenOnBrown {
             Point::new(-1, -1),
         )?;
 
-        /* algorithms with no extra parameters */
         let mut simple = HashMap::new();
         simple.insert("exg".into(), exg as AlgFn);
         simple.insert("exgr".into(), exgr as AlgFn);
@@ -71,7 +70,6 @@ impl GreenOnBrown {
         simple.insert("nexg".into(), nexg as AlgFn);
         simple.insert("gndvi".into(), gndvi as AlgFn);
 
-        /* algorithms that take thresholds */
         let mut param = HashMap::new();
         param.insert("exhsv".into(), exhsv as AlgFnWithParams);
         param.insert("hsv".into(), hsv_wrapper as AlgFnWithParams);
@@ -112,18 +110,7 @@ impl GreenOnBrown {
         let (mut mask, already_thresh) = if let Some(f) = self.simple.get(algorithm) {
             (f(frame)?, false)
         } else if let Some(f) = self.param.get(algorithm) {
-            f(
-                frame,
-                exg_min,
-                exg_max,
-                h_min,
-                h_max,
-                s_min,
-                s_max,
-                v_min,
-                v_max,
-                invert_hue,
-            )?
+            f(frame, exg_min, exg_max, h_min, h_max, s_min, s_max, v_min, v_max, invert_hue)?
         } else {
             return Err(opencv::Error::new(
                 core::StsError,
@@ -131,7 +118,7 @@ impl GreenOnBrown {
             ));
         };
 
-        /* threshold (write into temp to satisfy borrow checker) */
+        /* threshold (temp Mat avoids borrow clash) */
         if !already_thresh {
             let mut tmp = Mat::default();
             imgproc::threshold(
@@ -193,7 +180,6 @@ impl GreenOnBrown {
 
             let rect = imgproc::bounding_rect(&c)?;
             boxes.push([rect.x, rect.y, rect.width, rect.height]);
-
             centres.push([rect.x + rect.width / 2, rect.y + rect.height / 2]);
 
             imgproc::rectangle(
@@ -218,7 +204,7 @@ impl GreenOnBrown {
         }
 
         if show_window {
-            // caller handles display
+            // caller displays via highgui
         }
 
         Ok((contours, boxes, centres, annotated))
