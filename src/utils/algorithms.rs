@@ -1,4 +1,4 @@
-//! Light-weight vegetation-index helpers (no self-borrow writes).
+//! Lightweight vegetation-index helpers (no self-borrow conflicts).
 
 use opencv::{
     core::{self, Mat, Scalar},
@@ -7,125 +7,137 @@ use opencv::{
     Result,
 };
 
-/* helpers -------------------------------------------------------------- */
-fn split_bgr(src:&Mat)->Result<(Mat,Mat,Mat)>{
+/* ── split & convert helpers ─────────────────────────────────────────── */
+fn split_bgr(src: &Mat) -> Result<(Mat, Mat, Mat)> {
     let mut v = opencv::types::VectorOfMat::new();
-    core::split(src,&mut v)?;
-    Ok((v.get(0)?,v.get(1)?,v.get(2)?))
+    core::split(src, &mut v)?;
+    Ok((v.get(0)?, v.get(1)?, v.get(2)?)) // (B, G, R)
 }
-fn to_u8(src:&Mat)->Result<Mat>{
-    let mut out=Mat::default();
+fn to_u8(src: &Mat) -> Result<Mat> {
+    let mut out = Mat::default();
     src.convert_to(&mut out, core::CV_8U, 1.0, 0.0)?;
     Ok(out)
 }
 
-/* ExG ------------------------------------------------------------------ */
-pub fn exg(src:&Mat)->Result<Mat>{
-    let (b,g,r)=split_bgr(src)?;
-    let mut tmp1=Mat::default();
-    core::add_weighted(&g,2.0,&r,-1.0,0.0,&mut tmp1,-1)?;
-    let mut tmp2=Mat::default();
-    core::add_weighted(&tmp1,1.0,&b,-1.0,0.0,&mut tmp2,-1)?;
-    to_u8(&tmp2)
+/* ── ExG ─────────────────────────────────────────────────────────────── */
+pub fn exg(src: &Mat) -> Result<Mat> {
+    let (b, g, r) = split_bgr(src)?;
+    let mut mix1 = Mat::default();
+    core::add_weighted(&g, 2.0, &r, -1.0, 0.0, &mut mix1, -1)?;
+    let mut mix2 = Mat::default();
+    core::add_weighted(&mix1, 1.0, &b, -1.0, 0.0, &mut mix2, -1)?;
+    to_u8(&mix2)
 }
 
-/* ExGR ----------------------------------------------------------------- */
-pub fn exgr(src:&Mat)->Result<Mat>{
-    let exg_mat = exg(src)?;
-    let (_,_,r) = split_bgr(src)?;
+/* ── ExGR ────────────────────────────────────────────────────────────── */
+pub fn exgr(src: &Mat) -> Result<Mat> {
+    let exg_img = exg(src)?;
+    let (_, _, r) = split_bgr(src)?;
     let mut diff = Mat::default();
-    core::subtract(&exg_mat,&r,&mut diff,&Mat::default(),-1)?;
+    core::subtract(&exg_img, &r, &mut diff, &Mat::default(), -1)?;
     Ok(diff)
 }
 
-/* MaxG ----------------------------------------------------------------- */
-pub fn maxg(src:&Mat)->Result<Mat>{
-    let (b,g,r)=split_bgr(src)?;
-    let mut tmp=Mat::default();
-    core::max(&g,&r,&mut tmp)?;
-    let mut out=Mat::default();
-    core::max(&tmp,&b,&mut out)?;
+/* ── MaxG ────────────────────────────────────────────────────────────── */
+pub fn maxg(src: &Mat) -> Result<Mat> {
+    let (b, g, r) = split_bgr(src)?;
+    let mut tmp = Mat::default();
+    core::max(&g, &r, &mut tmp)?;
+    let mut out = Mat::default();
+    core::max(&tmp, &b, &mut out)?;
     Ok(out)
 }
 
-/* NExG ----------------------------------------------------------------- */
-pub fn nexg(src:&Mat)->Result<Mat>{
-    let (b,g,r)=split_bgr(src)?;
+/* ── NExG ────────────────────────────────────────────────────────────── */
+pub fn nexg(src: &Mat) -> Result<Mat> {
+    let (b, g, r) = split_bgr(src)?;
 
     let mut num = Mat::default();
-    core::subtract(&g,&r,&mut num,&Mat::default(),-1)?;
+    core::subtract(&g, &r, &mut num, &Mat::default(), -1)?;
 
+    let mut sum1 = Mat::default();
+    core::add(&g, &r, &mut sum1, &Mat::default(), -1)?;
     let mut denom = Mat::default();
-    core::add(&g,&r,&mut denom,&Mat::default(),-1)?;
-    core::add(&denom,&b,&mut denom,&Mat::default(),-1)?;
+    core::add(&sum1, &b, &mut denom, &Mat::default(), -1)?;
 
     /* 127 * num / denom */
     let mut inv = Mat::default();
-    core::divide(127.0,&denom,&mut inv,core::CV_32F)?;
-    let mut out = Mat::default();
-    core::multiply(&num,&inv,&mut out,1.0,-1)?;
-    to_u8(&out)
+    core::divide(127.0, &denom, &mut inv, core::CV_32F)?;
+
+    let mut scaled = Mat::default();
+    core::multiply(&num, &inv, &mut scaled, 1.0, -1)?;
+    to_u8(&scaled)
 }
 
-/* GNDVI ---------------------------------------------------------------- */
-pub fn gndvi(src:&Mat)->Result<Mat>{
-    let (b,g,_) = split_bgr(src)?;
+/* ── GNDVI (blue as fake NIR) ────────────────────────────────────────── */
+pub fn gndvi(src: &Mat) -> Result<Mat> {
+    let (b, g, _) = split_bgr(src)?;
 
-    let mut num=Mat::default();
-    core::subtract(&g,&b,&mut num,&Mat::default(),-1)?;
+    let mut num = Mat::default();
+    core::subtract(&g, &b, &mut num, &Mat::default(), -1)?;
 
-    let mut denom=Mat::default();
-    core::add(&g,&b,&mut denom,&Mat::default(),-1)?;
+    let mut denom = Mat::default();
+    core::add(&g, &b, &mut denom, &Mat::default(), -1)?;
 
-    let mut inv=Mat::default();
-    core::divide(127.0,&denom,&mut inv,core::CV_32F)?;
+    let mut inv = Mat::default();
+    core::divide(127.0, &denom, &mut inv, core::CV_32F)?;
 
-    let mut out=Mat::default();
-    core::multiply(&num,&inv,&mut out,1.0,-1)?;
-    to_u8(&out)
+    let mut scaled = Mat::default();
+    core::multiply(&num, &inv, &mut scaled, 1.0, -1)?;
+    to_u8(&scaled)
 }
 
-/* HSV / ExHSV ---------------------------------------------------------- */
+/* ── HSV threshold ───────────────────────────────────────────────────── */
 pub fn hsv(
-    src:&Mat,
-    h_min:i32,h_max:i32,
-    s_min:i32,s_max:i32,
-    v_min:i32,v_max:i32,
-    invert:bool,
-)->Result<(Mat,bool)>{
-    let mut hsv=Mat::default();
-    imgproc::cvt_color(src,&mut hsv,imgproc::COLOR_BGR2HSV,0)?;
+    src: &Mat,
+    h_min: i32, h_max: i32,
+    s_min: i32, s_max: i32,
+    v_min: i32, v_max: i32,
+    invert: bool,
+) -> Result<(Mat, bool)> {
+    let mut hsv = Mat::default();
+    imgproc::cvt_color(src, &mut hsv, imgproc::COLOR_BGR2HSV, 0)?;
 
-    let lower=Scalar::new(h_min as f64,s_min as f64,v_min as f64,0.0);
-    let upper=Scalar::new(h_max as f64,s_max as f64,v_max as f64,0.0);
+    let lower = Scalar::new(h_min as f64, s_min as f64, v_min as f64, 0.0);
+    let upper = Scalar::new(h_max as f64, s_max as f64, v_max as f64, 0.0);
+    let mut mask = Mat::default();
+    core::in_range(&hsv, &lower, &upper, &mut mask)?;
 
-    let mut mask=Mat::default();
-    core::in_range(&hsv,&lower,&upper,&mut mask)?;
-    if invert{ core::bitwise_not(&mask,&mut mask,&Mat::default())?; }
-    Ok((mask,true))
+    if invert {
+        let mut neg = Mat::default();
+        core::bitwise_not(&mask, &mut neg, &Mat::default())?;
+        mask = neg;
+    }
+    Ok((mask, true))
 }
 
+/* ── ExHSV (ExG mask AND HSV mask) ───────────────────────────────────── */
 pub fn exhsv(
-    src:&Mat,
-    exg_min:i32, exg_max:i32,
-    h_min:i32,  h_max:i32,
-    s_min:i32,  s_max:i32,
-    v_min:i32,  v_max:i32,
-    invert:bool,
-)->Result<(Mat,bool)>{
+    src: &Mat,
+    exg_min: i32, exg_max: i32,
+    h_min: i32,  h_max: i32,
+    s_min: i32,  s_max: i32,
+    v_min: i32,  v_max: i32,
+    invert: bool,
+) -> Result<(Mat, bool)> {
+    /* ExG threshold */
     let exg_mask = {
-        let exg = exg(src)?;
-        let mut m=Mat::default();
+        let exg_img = exg(src)?;
+        let mut m = Mat::default();
         core::in_range(
-            &exg,
-            &Scalar::new(exg_min as f64,0.0,0.0,0.0),
-            &Scalar::new(exg_max as f64,0.0,0.0,0.0),
+            &exg_img,
+            &Scalar::new(exg_min as f64, 0.0, 0.0, 0.0),
+            &Scalar::new(exg_max as f64, 0.0, 0.0, 0.0),
             &mut m,
         )?;
         m
     };
-    let (hsv_mask,_) = hsv(src,h_min,h_max,s_min,s_max,v_min,v_max,invert)?;
-    let mut combined=Mat::default();
-    core::bitwise_and(&exg_mask,&hsv_mask,&mut combined,&Mat::default())?;
-    Ok((combined,true))
+
+    /* HSV threshold */
+    let (hsv_mask, _) = hsv(src, h_min, h_max, s_min, s_max, v_min, v_max, invert)?;
+
+    /* combine */
+    let mut combined = Mat::default();
+    core::bitwise_and(&exg_mask, &hsv_mask, &mut combined, &Mat::default())?;
+    Ok((combined, true))
 }
