@@ -1,48 +1,39 @@
-//! Vegetation-index helpers used by Green-on-Brown detection.
+//! Fast, no-allocation vegetation-index helpers.
+//! Each function returns `Result<Mat>` where the output is an 8-bit, single-channel image.
 
 use opencv::{
-    core::{self, Mat, Scalar, Vec3b},
+    core::{self, Mat, Scalar},
     imgproc,
     prelude::*,
     Result,
 };
 
-/// Generic helper: split BGR channels into separate Mats.
 fn split_bgr(src: &Mat) -> Result<(Mat, Mat, Mat)> {
-    let mut chans = opencv::types::VectorOfMat::new();
-    core::split(src, &mut chans)?;
-    Ok((chans.get(0)?, chans.get(1)?, chans.get(2)?)) // (B,G,R)
+    let mut v = opencv::types::VectorOfMat::new();
+    core::split(src, &mut v)?;
+    Ok((v.get(0)?, v.get(1)?, v.get(2)?)) // (B,G,R)
 }
 
-/* ------------------------------------------------------------------------- */
-/*  Single-channel indices – return a Mat with 8-bit unsigned values         */
-/* ------------------------------------------------------------------------- */
+/* --------------------------------------------------------------------- */
+/*  Simple indices                                                       */
+/* --------------------------------------------------------------------- */
 
 pub fn exg(src: &Mat) -> Result<Mat> {
     let (b, g, r) = split_bgr(src)?;
-    let mut exg = Mat::default();
-    // exg  = 2G – R – B   (clamp to [0,255])
-    core::add_weighted(&g, 2.0, &r, -1.0, 0.0, &mut exg, core::CV_32F)?;
-    core::add_weighted(&exg, 1.0, &b, -1.0, 0.0, &mut exg, core::CV_32F)?;
-    let mut u8 = Mat::default();
-    exg.convert_to(&mut u8, core::CV_8U, 1.0, 0.0)?;
-    Ok(u8)
+    let mut tmp = Mat::default();
+    core::add_weighted(&g, 2.0, &r, -1.0, 0.0, &mut tmp, -1)?;
+    core::add_weighted(&tmp, 1.0, &b, -1.0, 0.0, &mut tmp, -1)?;
+    let mut out = Mat::default();
+    tmp.convert_to(&mut out, core::CV_8U, 1.0, 0.0)?;
+    Ok(out)
 }
 
 pub fn exgr(src: &Mat) -> Result<Mat> {
-    // exgr = exg – (R / (G + 1)) * 255   (simple variant)
     let exg = exg(src)?;
     let (_, _, r) = split_bgr(src)?;
-    let mut g_plus1 = Mat::default();
-    let (_, g, _) = split_bgr(src)?;
-    core::add(&g, &Scalar::all(1.0), &mut g_plus1, &core::no_array()?, -1)?;
-    let mut ratio = Mat::default();
-    core::divide(&r, &g_plus1, &mut ratio, 255.0, core::CV_32F)?;
-    let mut exgr = Mat::default();
-    core::subtract(&exg, &ratio, &mut exgr, &core::no_array()?, -1)?;
-    let mut u8 = Mat::default();
-    exgr.convert_to(&mut u8, core::CV_8U, 1.0, 0.0)?;
-    Ok(u8)
+    let mut out = Mat::default();
+    core::subtract(&exg, &r, &mut out, &Mat::default(), -1)?;
+    Ok(out)
 }
 
 pub fn maxg(src: &Mat) -> Result<Mat> {
@@ -54,37 +45,40 @@ pub fn maxg(src: &Mat) -> Result<Mat> {
 }
 
 pub fn nexg(src: &Mat) -> Result<Mat> {
-    // Normalised ExG  =  (G-R) / (G+R+B)
     let (b, g, r) = split_bgr(src)?;
-    let mut gr = Mat::default();
-    core::subtract(&g, &r, &mut gr, &core::no_array()?, -1)?;
-    let mut sum = Mat::default();
-    core::add(&g, &r, &mut sum, &core::no_array()?, -1)?;
-    core::add(&sum, &b, &mut sum, &core::no_array()?, -1)?;
-    let mut nexg = Mat::default();
-    core::divide(&gr, &sum, &mut nexg, 127.0, core::CV_32F)?;
-    let mut u8 = Mat::default();
-    nexg.convert_to(&mut u8, core::CV_8U, 1.0, 0.0)?;
-    Ok(u8)
+    let mut top  = Mat::default();
+    core::subtract(&g, &r, &mut top, &Mat::default(), -1)?;
+
+    let mut denom = Mat::default();
+    core::add(&g, &r, &mut denom, &Mat::default(), -1)?;
+    core::add(&denom, &b, &mut denom, &Mat::default(), -1)?;
+
+    // dst = (top / denom) * 127   →   divide(scale, src2, dst, dtype)
+    core::divide(127.0, &denom, &mut denom, core::CV_32F)?;
+    core::multiply(&top, &denom, &mut denom, 1.0, -1)?;
+    let mut out = Mat::default();
+    denom.convert_to(&mut out, core::CV_8U, 1.0, 0.0)?;
+    Ok(out)
 }
 
 pub fn gndvi(src: &Mat) -> Result<Mat> {
-    // Very rough  – using B as NIR placeholder (for demo purposes)
     let (b, g, _) = split_bgr(src)?;
     let mut num = Mat::default();
-    core::subtract(&g, &b, &mut num, &core::no_array()?, -1)?;
-    let mut den = Mat::default();
-    core::add(&g, &b, &mut den, &core::no_array()?, -1)?;
-    let mut gndvi = Mat::default();
-    core::divide(&num, &den, &mut gndvi, 127.0, core::CV_32F)?;
-    let mut u8 = Mat::default();
-    gndvi.convert_to(&mut u8, core::CV_8U, 1.0, 0.0)?;
-    Ok(u8)
+    core::subtract(&g, &b, &mut num, &Mat::default(), -1)?;
+
+    let mut denom = Mat::default();
+    core::add(&g, &b, &mut denom, &Mat::default(), -1)?;
+
+    core::divide(127.0, &denom, &mut denom, core::CV_32F)?;
+    core::multiply(&num, &denom, &mut denom, 1.0, -1)?;
+    let mut out = Mat::default();
+    denom.convert_to(&mut out, core::CV_8U, 1.0, 0.0)?;
+    Ok(out)
 }
 
-/* ------------------------------------------------------------------------- */
-/*  HSV-based threshold helpers                                              */
-/* ------------------------------------------------------------------------- */
+/* --------------------------------------------------------------------- */
+/*  HSV threshold helpers                                                */
+/* --------------------------------------------------------------------- */
 
 pub fn hsv(
     src: &Mat,
@@ -95,12 +89,14 @@ pub fn hsv(
 ) -> Result<(Mat, bool)> {
     let mut hsv = Mat::default();
     imgproc::cvt_color(src, &mut hsv, imgproc::COLOR_BGR2HSV, 0)?;
-    let lower = core::Scalar::new(h_min as f64, s_min as f64, v_min as f64, 0.0);
-    let upper = core::Scalar::new(h_max as f64, s_max as f64, v_max as f64, 0.0);
+
+    let lower = Scalar::new(h_min as f64, s_min as f64, v_min as f64, 0.0);
+    let upper = Scalar::new(h_max as f64, s_max as f64, v_max as f64, 0.0);
     let mut mask = Mat::default();
     core::in_range(&hsv, &lower, &upper, &mut mask)?;
+
     if invert_hue {
-        core::bitwise_not(&mask, &mut mask, &core::no_array()?)?;
+        core::bitwise_not(&mask, &mut mask, &Mat::default())?;
     }
     Ok((mask, true))
 }
@@ -122,8 +118,9 @@ pub fn exhsv(
         &Scalar::new(exg_max as f64, 0.0, 0.0, 0.0),
         &mut exg_mask,
     )?;
+
     let (hsv_mask, _) = hsv(src, h_min, h_max, s_min, s_max, v_min, v_max, invert_hue)?;
     let mut combined = Mat::default();
-    core::bitwise_and(&exg_mask, &hsv_mask, &mut combined, &core::no_array()?)?;
+    core::bitwise_and(&exg_mask, &hsv_mask, &mut combined, &Mat::default())?;
     Ok((combined, true))
 }
