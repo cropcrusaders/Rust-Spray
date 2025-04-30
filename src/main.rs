@@ -3,7 +3,7 @@ use log::info;
 use opencv::highgui;
 use std::error::Error;
 
-// Declare project modules
+// ─── Project modules ────────────────────────────────────────────────────────
 mod camera;
 mod config;
 mod detection;
@@ -11,103 +11,98 @@ mod error;
 mod spray;
 mod utils;
 
-// Import necessary items from modules
 use camera::Camera;
 use config::Config;
 use detection::GreenOnBrown;
 use spray::SprayController;
 
-// Define command-line arguments
+// ─── CLI args ───────────────────────────────────────────────────────────────
 #[derive(Parser)]
 struct Cli {
     /// Path to the configuration file
     #[arg(long, default_value = "config/config.toml")]
     config: String,
 
-    /// Enable display of detection results
+    /// Display the annotated video stream
     #[arg(long)]
     show_display: bool,
 }
 
-/// Entry point of the RustSpray application
+// ─── main ───────────────────────────────────────────────────────────────────
 fn main() -> Result<(), Box<dyn Error>> {
-    // Initialize the logger for debugging and monitoring
     env_logger::init();
-
-    // Parse command-line arguments
     let cli = Cli::parse();
 
-    // Load configuration from the specified file
+    // 1. Load config
     let config = Config::load(&cli.config)?;
-    info!("Configuration loaded from {}", cli.config);
+    info!("Config loaded from {}", cli.config);
 
-    // Initialize the camera with settings from the configuration
+    // 2. Camera
     let mut camera = Camera::new(&config.camera.device)?;
-    info!("Camera initialized");
+    info!("Camera initialised");
 
-    // Initialize the weed detection mechanism
+    // 3. Detection
     let gob = GreenOnBrown::new(&config.detection.algorithm)?;
-    info!("Detection algorithm '{}' initialized", config.detection.algorithm);
+    info!("Detector '{}'", config.detection.algorithm);
 
-    // Initialize the spraying hardware
-    let mut spray_controller = SprayController::new(config.spray.pins)?;
-    info!("Spray controller initialized");
+    // 4. Sprayer
+    let mut spray = SprayController::new(config.spray.pins)?;
+    info!("Spray controller ready");
 
-    // Set up the display window if show_display is enabled
+    // 5. Optional display window
     if cli.show_display {
         highgui::named_window("Detection", highgui::WINDOW_AUTOSIZE)?;
     }
 
-    // Run the main processing loop
-    run(&mut camera, &gob, &mut spray_controller, &config, cli.show_display)?;
-
-    Ok(())
+    // 6. Main loop
+    run(&mut camera, &gob, &mut spray, &config, cli.show_display)
 }
 
-/// Runs the main loop for capturing images, detecting weeds, and spraying
+// ─── processing loop ────────────────────────────────────────────────────────
 fn run(
     camera: &mut Camera,
     gob: &GreenOnBrown,
-    spray_controller: &mut SprayController,
-    config: &Config,
+    spray: &mut SprayController,
+    cfg: &Config,
     show_display: bool,
 ) -> Result<(), Box<dyn Error>> {
     loop {
-        // Capture an image from the camera
-        let image = camera.capture()?;
-        info!("Image captured");
+        // ── capture
+        let frame = camera.capture()?;
+        info!("Frame captured");
 
-        // Perform weed detection on the captured // inside your main loop, replace the binding line with:
-        let (_contours, _boxes, weed_centres, image_out) = gob.inference(
-            &image,
-            config.detection.exg_min,
-            config.detection.exg_max,
-            config.detection.hue_min,
-            config.detection.hue_max,
-            config.detection.brightness_min,
-            config.detection.brightness_max,
-            config.detection.saturation_min,
-            config.detection.saturation_max,
-            config.detection.min_area,
+        // ── detect
+        let (_contours, _boxes, centres, annotated) = gob.inference(
+            &frame,
+            cfg.detection.exg_min,
+            cfg.detection.exg_max,
+            cfg.detection.hue_min,
+            cfg.detection.hue_max,
+            cfg.detection.brightness_min,
+            cfg.detection.brightness_max,
+            cfg.detection.saturation_min,
+            cfg.detection.saturation_max,
+            cfg.detection.min_area,
             show_display,
-            &config.detection.algorithm,
-            config.detection.invert_hue,
+            &cfg.detection.algorithm,
+            cfg.detection.invert_hue,
             "WEED",
         )?;
-        info!("Detection completed with {} weeds found", weed_centres.len());
+        info!("Found {} weeds", centres.len());
 
-        // Activate the sprayer if weeds are detected
-        if !weed_centres.is_empty() {
-            spray_controller.activate_all();
-            std::thread::sleep(std::time::Duration::from_millis(config.spray.activation_duration_ms as u64));
-            spray_controller.deactivate_all();
-            info!("Sprayers activated");
+        // ── spray if needed
+        if !centres.is_empty() {
+            spray.activate_all();
+            std::thread::sleep(std::time::Duration::from_millis(
+                cfg.spray.activation_duration_ms as u64,
+            ));
+            spray.deactivate_all();
+            info!("Sprayers pulsed");
         }
 
-        // Display the detection results if enabled
+        // ── optional display & exit key
         if show_display {
-            highgui::imshow("Detection", &image_out)?;
-            // Exit the loop if 'q' is pressed
+            highgui::imshow("Detection", &annotated)?;
             if highgui::wait_key(1)? == 'q' as i32 {
                 break;
             }
