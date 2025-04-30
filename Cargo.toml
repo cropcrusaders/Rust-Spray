@@ -13,7 +13,8 @@ categories  = ["hardware", "embedded", "science", "image-processing"]
 # ────────────────────────────────────────────────────────────────────────────
 [dependencies]
 
-opencv = { version = "0.89", default-features = false, features = ["clang-runtime", "opencv-4", "core", "highgui", "imgproc", "imgcodecs", "videoio", "objdetect"] }
+opencv = { version = "0.89", default-features = false, features = ["clang-runtime", "opencv-4", "highgui", "imgproc", "imgcodecs", "videoio", "objdetect"] }
+
 # ⬥ Configuration loading
 serde = { version = "1.0", features = ["derive"] }
 toml  = "0.8"
