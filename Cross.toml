@@ -1,2 +1,13 @@
-[target.aarch64-unknown-linux-gnu]
-image = "ghcr.io/cross-rs/aarch64-unknown-linux-gnu:latest"
+# Tell cross to target Raspberry Pi’s aarch64 and
+# install the ARM64 OpenCV dev packages inside its container.
+[build]
+default-target = "aarch64-unknown-linux-gnu"
+
+pre-build = [
+  # enable the ARM64 architecture
+  "dpkg --add-architecture arm64",
+  "apt-get update -qq",
+  # install the ARM64 OpenCV dev headers + pkg-config + Clang for linking
+  "DEBIAN_FRONTEND=noninteractive apt-get install -y \\",
+  "  libopencv-dev:arm64 pkg-config:arm64 clang:arm64 libclang-dev:arm64"
+]
