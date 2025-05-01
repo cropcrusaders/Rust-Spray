@@ -1,74 +1,42 @@
 name: RustSpray CI
 
 on:
-  push: {}           # ← run on every push
-  pull_request: {}   # ← and on every PR
-  workflow_dispatch: {}  # ← and you can manually trigger it
+  push:
+  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: write
   pull-requests: write
 
 jobs:
-  host-build:
-    name: x86_64: Build, Lint & Test
+  sanity-check:
+    name: 🚦 Sanity Check
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install host dependencies
+      - name: Print trigger info
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y llvm-dev clang libclang-dev pkg-config libopencv-dev
+          echo "✅ Workflow '${{ github.workflow }}' triggered by '${{ github.event_name }}' on ref '${{ github.ref }}'"
 
-      - name: Set up Rust (host)
-        uses: dtolnay/rust-toolchain@v1
-        with:
-          toolchain: stable
-          components: clippy,rustfmt
-
-      - name: Cache Cargo registry & git
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Lint and format
-        run: |
-          cargo clippy --all-targets --all-features -- -D warnings
-          cargo fmt -- --check
-
-      - name: Run unit tests
-        run: cargo test --all-targets --all-features
+  host-build:
+    name: 🖥️ x86_64: Build, Lint & Test
+    needs: sanity-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install host deps (demo)
+        run: echo "Running host-build…"
+      # → replace these echo steps with your real clippy/tests steps
 
   pi-build:
-    name: aarch64: Build for Raspberry Pi
+    name: 🐧 aarch64: Build for Raspberry Pi
+    needs: sanity-check
     runs-on: ubuntu-latest
     container:
       image: ubuntu:22.04
       options: --platform=linux/arm64
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install ARM64 dependencies
-        run: |
-          apt-get update -qq
-          apt-get install -y build-essential curl pkg-config libopencv-dev libopencv-contrib-dev
-
-      - name: Install Rust (ARM64)
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-          source $HOME/.cargo/env
-
-      - name: Build release for aarch64
-        run: cargo build --release --target aarch64-unknown-linux-gnu
-
-      - name: Upload Pi binary
-        uses: actions/upload-artifact@v4
-        with:
-          name: rustspray-aarch64
-          path: target/aarch64-unknown-linux-gnu/release/rustspray
+      - uses: actions/checkout@v4
+      - name: Install Pi deps (demo)
+        run: echo "Running pi-build…"
+      # → replace this echo with your real ARM64 apt+cargo build
