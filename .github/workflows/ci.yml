@@ -17,7 +17,6 @@ jobs:
   host-build:
     name: x86_64: Build, Lint & Test
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -57,7 +56,6 @@ jobs:
     container:
       image: ubuntu:22.04
       options: --platform=linux/arm64
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -75,7 +73,8 @@ jobs:
           source $HOME/.cargo/env
 
       - name: Build release for aarch64
-        run: cargo build --release --target aarch64-unknown-linux-gnu
+        run: |
+          cargo build --release --target aarch64-unknown-linux-gnu
 
       - name: Upload Pi binary
         uses: actions/upload-artifact@v4
