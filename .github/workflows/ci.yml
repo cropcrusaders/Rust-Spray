@@ -1,5 +1,3 @@
-# .github/workflows/ci.yml
-
 name: RustSpray CI
 
 on:
@@ -17,11 +15,11 @@ permissions:
 
 jobs:
   host-build:
-    name: x86_64: build, lint & test
+    name: x86_64: Build, Lint & Test
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Install host dependencies
@@ -45,7 +43,7 @@ jobs:
             ~/.cargo/git
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Lint and format check
+      - name: Lint and format
         run: |
           cargo clippy --all-targets --all-features -- -D warnings
           cargo fmt -- --check
@@ -54,15 +52,14 @@ jobs:
         run: cargo test --all-targets --all-features
 
   pi-build:
-    name: aarch64: build for Raspberry Pi
+    name: aarch64: Build for Raspberry Pi
     runs-on: ubuntu-latest
-    # run inside an ARM64 Ubuntu container under QEMU
     container:
       image: ubuntu:22.04
       options: --platform=linux/arm64
 
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Install ARM64 dependencies
