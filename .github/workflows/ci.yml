@@ -2,11 +2,7 @@ name: RustSpray CI
 
 on:
   push:
-    branches:
-      - main
   pull_request:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
@@ -55,7 +51,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ubuntu:22.04
-      options: --platform=linux/arm64
+      platform: linux/arm64
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
