@@ -1,26 +1,32 @@
 # Cross.toml
+
 [build]
 default-target = "aarch64-unknown-linux-gnu"
 
+# 1. Pre‐build in the aarch64 container: enable arm64 multi‐arch, then install
+#    exactly the ARM64 OpenCV core dev package + pkg-config.
 pre-build = [
-  # 1) enable arm64 multi-arch
   "dpkg --add-architecture arm64",
   "apt-get update -qq",
-  # 2) install just the ARM64 OpenCV dev packages & pkg-config
   "DEBIAN_FRONTEND=noninteractive apt-get install -y \\",
-  "  libopencv-dev:arm64 libopencv-contrib-dev:arm64 pkg-config:arm64",
-  # 3) create the pkgconfig dir and symlink opencv4.pc
-  "mkdir -p /usr/lib/aarch64-linux-gnu/pkgconfig",
-  "ln -sf /usr/lib/aarch64-linux-gnu/pkgconfig/opencv.pc \\",
-  "      /usr/lib/aarch64-linux-gnu/pkgconfig/opencv4.pc"
+  "  libopencv-dev:arm64 pkg-config:arm64"
 ]
 
 [build.env]
-passthrough = ["PKG_CONFIG_ALLOW_CROSS=1"]
+# 2. Let pkg-config probe cross‐arch libs, and force the crate to use
+#    `pkg-config opencv` (i.e. opencv.pc) instead of opencv4.pc
+passthrough = [
+  "PKG_CONFIG_ALLOW_CROSS=1",
+  "OPENCV_PKGCONFIG_NAME=opencv"
+]
 
 [target.aarch64-unknown-linux-gnu.env]
 passthrough = [
+  # Point pkg-config at the ARM64 .pc directory
   "PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig",
   "PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig",
-  "CXX=aarch64-linux-gnu-g++"
+  # Make sure the right cross-linker is used
+  "CXX=aarch64-linux-gnu-g++",
+  # Also propagate the pkgconfig override here, just in case
+  "OPENCV_PKGCONFIG_NAME=opencv"
 ]
