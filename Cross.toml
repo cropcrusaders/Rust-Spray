@@ -2,21 +2,27 @@
 [build]
 default-target = "aarch64-unknown-linux-gnu"
 
-# Install OpenCV & tooling inside the ARM64 build container
+# Pre-build steps inside the AArch64 container:
 pre-build = [
+  # enable the “universe” archive so contrib packages exist
   "apt-get update -qq",
+  "DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common",
+  "add-apt-repository universe",
+  "DEBIAN_FRONTEND=noninteractive apt-get update -qq",
+  # install both the core and the contrib dev packages (all built as ARM64 here)
   "DEBIAN_FRONTEND=noninteractive apt-get install -y \\",
-  "  libopencv-dev pkg-config clang libclang-dev"
+  "  libopencv-dev libopencv-contrib-dev pkg-config"
 ]
 
-# Pass through PKG_CONFIG_ALLOW_CROSS so pkg-config will probe cross-arch libs
 [build.env]
+# allow pkg-config to probe for cross-arch libs
 passthrough = ["PKG_CONFIG_ALLOW_CROSS=1"]
 
-# For the aarch64 target, override the pkg-config search path
 [target.aarch64-unknown-linux-gnu.env]
 passthrough = [
-  # point at the ARM64 pkgconfig directory
+  # point pkg-config at the ARM64 pkgconfig dir
   "PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig",
-  "PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig"
+  "PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig",
+  # ensure the right cross-linker
+  "CXX=aarch64-linux-gnu-g++"
 ]
