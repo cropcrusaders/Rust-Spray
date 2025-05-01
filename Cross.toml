@@ -1,8 +1,2 @@
-# Cross.toml  (place at the project root)
-
 [target.aarch64-unknown-linux-gnu]
-# Environment variables that cross will inject into the build container.
-env = { 
-  OPENCV_DOWNLOAD       = "1",   # fetch & build OpenCV from source
-  OPENCV_DISABLE_PROBES = "1"    # skip pkg-config / CMake probing
-}
+image = "ubuntu:22.04"
