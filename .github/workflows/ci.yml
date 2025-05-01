@@ -1,10 +1,15 @@
+# .github/workflows/ci.yml
+
 name: RustSpray CI
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   pull_request:
-    branches: [main]
+    branches:
+      - main
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -14,6 +19,7 @@ jobs:
   host-build:
     name: x86_64: build, lint & test
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -50,6 +56,7 @@ jobs:
   pi-build:
     name: aarch64: build for Raspberry Pi
     runs-on: ubuntu-latest
+    # run inside an ARM64 Ubuntu container under QEMU
     container:
       image: ubuntu:22.04
       options: --platform=linux/arm64
