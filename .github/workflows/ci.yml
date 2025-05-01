@@ -1,42 +1,25 @@
-name: RustSpray CI
+pi-build:
+  name: 🐧 aarch64: Build for Raspberry Pi
+  needs: sanity-check
+  runs-on: ubuntu-latest
 
-on:
-  push:
-  pull_request:
-  workflow_dispatch:
+  steps:
+    - uses: actions/checkout@v4
 
-permissions:
-  contents: write
-  pull-requests: write
+    - name: Set up Rust + install cross
+      run: |
+        curl -sSf https://sh.rustup.rs | sh -s -- -y
+        source "$HOME/.cargo/env"
+        rustup target add aarch64-unknown-linux-gnu
+        cargo install cross
 
-jobs:
-  sanity-check:
-    name: 🚦 Sanity Check
-    runs-on: ubuntu-latest
-    steps:
-      - name: Print trigger info
-        run: |
-          echo "✅ Workflow '${{ github.workflow }}' triggered by '${{ github.event_name }}' on ref '${{ github.ref }}'"
+    - name: Build for aarch64 (Pi)
+      run: |
+        source "$HOME/.cargo/env"
+        cross build --target aarch64-unknown-linux-gnu --release
 
-  host-build:
-    name: 🖥️ x86_64: Build, Lint & Test
-    needs: sanity-check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install host deps (demo)
-        run: echo "Running host-build…"
-      # → replace these echo steps with your real clippy/tests steps
-
-  pi-build:
-    name: 🐧 aarch64: Build for Raspberry Pi
-    needs: sanity-check
-    runs-on: ubuntu-latest
-    container:
-      image: ubuntu:22.04
-      options: --platform=linux/arm64
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install Pi deps (demo)
-        run: echo "Running pi-build…"
-      # → replace this echo with your real ARM64 apt+cargo build
+    - name: Upload Raspberry Pi binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: rpi-binary
+        path: target/aarch64-unknown-linux-gnu/release/<your_binary_name>
