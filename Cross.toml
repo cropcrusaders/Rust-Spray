@@ -2,27 +2,30 @@
 [build]
 default-target = "aarch64-unknown-linux-gnu"
 
-# Pre-build steps inside the AArch64 container:
+# 1) install the ARM64 OpenCV dev packages (core + contrib) inside the container,
+#    then symlink the distro’s opencv.pc -> opencv4.pc so pkg-config opencv4 works
 pre-build = [
-  # enable the “universe” archive so contrib packages exist
   "apt-get update -qq",
   "DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common",
   "add-apt-repository universe",
   "DEBIAN_FRONTEND=noninteractive apt-get update -qq",
-  # install both the core and the contrib dev packages (all built as ARM64 here)
   "DEBIAN_FRONTEND=noninteractive apt-get install -y \\",
-  "  libopencv-dev libopencv-contrib-dev pkg-config"
+  "  libopencv-dev libopencv-contrib-dev pkg-config",
+  # Ubuntu’s libopencv-dev provides /usr/lib/aarch64-linux-gnu/pkgconfig/opencv.pc
+  # so we create the opencv4.pc alias that opencv-rust expects for OpenCV 4
+  "ln -sf /usr/lib/aarch64-linux-gnu/pkgconfig/opencv.pc \\",
+  "      /usr/lib/aarch64-linux-gnu/pkgconfig/opencv4.pc"
 ]
 
 [build.env]
-# allow pkg-config to probe for cross-arch libs
+# allow pkg-config to probe cross-arch libs
 passthrough = ["PKG_CONFIG_ALLOW_CROSS=1"]
 
 [target.aarch64-unknown-linux-gnu.env]
 passthrough = [
-  # point pkg-config at the ARM64 pkgconfig dir
+  # make sure pkg-config only sees the ARM64 pc files
   "PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig",
   "PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig",
-  # ensure the right cross-linker
+  # use the correct cross-linker
   "CXX=aarch64-linux-gnu-g++"
 ]
