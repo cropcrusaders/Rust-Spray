@@ -15,69 +15,43 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
-      # for host‐side tests
+      # for pkg-config on host
       OPENCV_PKGCONFIG_NAME: opencv4
 
     steps:
-      # 1️⃣ Grab your code
+      # 1️⃣ Checkout your code
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2️⃣ Host deps (clippy/tests) + native OpenCV
+      # 2️⃣ Install host deps + native OpenCV for lint/tests
       - name: Install host packages
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y \
             llvm-dev clang libclang-dev \
-            libopencv-dev pkg-config
+            libopencv-dev pkg-config \
+            qemu-user-static binfmt-support
 
-      # 3️⃣ Rust toolchain
+      # 3️⃣ Set up Rust toolchain
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: stable
           components: clippy,rustfmt
 
-      # 4️⃣ Caches (registry, git, build output)
+      # 4️⃣ Cache crates (registry & git)
       - name: Cache cargo registry
         uses: actions/cache@v3
         with:
           path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-reg-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
       - name: Cache cargo git
         uses: actions/cache@v3
         with:
           path: ~/.cargo/git
           key: ${{ runner.os }}-cargo-git-${{ hashFiles('**/Cargo.lock') }}
-      - name: Cache build artifacts
-        uses: actions/cache@v3
-        with:
-          path: |
-            target/debug
-            target/release
-          key: ${{ runner.os }}-cargo-artefacts-${{ hashFiles('**/Cargo.lock') }}
 
-      # 5️⃣ Lockfile refresh
-      - name: Refresh Cargo.lock
-        env:
-          GH_TOKEN: ${{ secrets.PAT_PUSH }}
-        run: |
-          set -euo pipefail
-          cargo generate-lockfile
-          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
-            git diff --quiet Cargo.lock \
-              || { echo "::error::Cargo.lock is stale – run 'cargo generate-lockfile'."; exit 1; }
-          else
-            if ! git diff --quiet Cargo.lock; then
-              git config user.name  "GitHub Actions"
-              git config user.email "actions@github.com"
-              git add Cargo.lock
-              git commit -m "ci: refresh Cargo.lock [skip ci]"
-              git push
-            fi
-          fi
-
-      # 6️⃣ Lint, format, tests
+      # 5️⃣ Run lint, fmt and tests
       - name: Clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
 
@@ -87,27 +61,15 @@ jobs:
       - name: Unit tests
         run: cargo test --all-targets --all-features
 
-      # 7️⃣ Enable AArch64 QEMU / multi-arch and install the ARM64 OpenCV dev package
-      - name: Setup QEMU and multi-arch OpenCV
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y \
-            qemu-user-static binfmt-support
-          sudo dpkg --add-architecture arm64
-          sudo apt-get update -qq
-          sudo apt-get install -y \
-            libopencv-dev:arm64 pkg-config:arm64
+      # 6️⃣ Install cross for cross-compilation
+      - name: Install cross
+        run: cargo install cross --git https://github.com/cross-rs/cross --tag v0.2.4
 
-      # 8️⃣ Cross-compile under QEMU (emulated) for Raspberry Pi
-      - name: Build for aarch64 (via QEMU)
-        env:
-          # Let pkg-config know we’re probing for ARM64
-          PKG_CONFIG_ALLOW_CROSS: "1"
-          PKG_CONFIG_PATH: "/usr/lib/aarch64-linux-gnu/pkgconfig"
-        run: |
-          cargo build --release --target aarch64-unknown-linux-gnu
+      # 7️⃣ Cross-build under QEMU for Raspberry Pi
+      - name: Cross-build for aarch64 (Raspberry Pi)
+        run: cross build --release --target aarch64-unknown-linux-gnu
 
-      # 9️⃣ Upload the Pi‐ready binary
+      # 🔟 Upload the Pi binary
       - name: Upload Pi binary
         uses: actions/upload-artifact@v4
         with:
