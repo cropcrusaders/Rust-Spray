@@ -1,13 +1,82 @@
-name: Minimal CI
+name: RustSpray CI
 
 on:
   push:
+    branches:
+      - main
   pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
-  test:
+  host-build:
+    name: x86_64: Build, Lint & Test
     runs-on: ubuntu-latest
     steps:
-      - name: Say hello
-        run: echo "✅ GitHub Actions is running!"
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install host dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y \
+            llvm-dev clang libclang-dev \
+            pkg-config libopencv-dev
+
+      - name: Set up Rust (host)
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: clippy,rustfmt
+
+      - name: Cache Cargo registry & git
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Lint and format
+        run: |
+          cargo clippy --all-targets --all-features -- -D warnings
+          cargo fmt -- --check
+
+      - name: Run unit tests
+        run: cargo test --all-targets --all-features
+
+  pi-build:
+    name: aarch64: Build for Raspberry Pi
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:22.04
+      options: --platform=linux/arm64
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install ARM64 dependencies
+        run: |
+          apt-get update -qq
+          apt-get install -y \
+            build-essential curl pkg-config \
+            libopencv-dev libopencv-contrib-dev
+
+      - name: Install Rust (ARM64)
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          source $HOME/.cargo/env
+
+      - name: Build release for aarch64
+        run: cargo build --release --target aarch64-unknown-linux-gnu
+
+      - name: Upload Pi binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustspray-aarch64
+          path: target/aarch64-unknown-linux-gnu/release/rustspray
