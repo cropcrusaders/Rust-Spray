@@ -10,8 +10,14 @@ permissions:
   contents: write
   pull-requests: write
 
+# A single cache-key suffix for both jobs
+env:
+  CARGO_CACHE_KEY: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock','**/Cross.toml') }}
+
 jobs:
+  # ──────────────────────────────────────────────────────────────────────────────
   build-and-test:
+    name: Host build, lint & tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -20,7 +26,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2️⃣ Host-side deps (for clippy, unit tests)
+      # 2️⃣ Install host deps for clippy/tests
       - name: Install host dependencies
         run: |
           sudo apt-get update -qq
@@ -30,7 +36,8 @@ jobs:
 
       # 3️⃣ Refresh Cargo.lock (auto-commit on main, fail on PRs)
       - name: Refresh Cargo.lock
-        env: { GH_TOKEN: ${{ secrets.PAT_PUSH }} }
+        env:
+          GH_TOKEN: ${{ secrets.PAT_PUSH }}
         run: |
           set -euo pipefail
           cargo generate-lockfile
@@ -47,14 +54,14 @@ jobs:
             git push
           fi
 
-      # 4️⃣ Toolchain
+      # 4️⃣ Toolchain setup
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: stable
           components: clippy,rustfmt
 
-      # 5️⃣ Cache (host)
+      # 5️⃣ Cache cargo (host)
       - name: Cache cargo (host)
         uses: actions/cache@v3
         with:
@@ -63,9 +70,9 @@ jobs:
             ~/.cargo/git
             target/debug
             target/release
-          key: ${{ runner.os }}-cargo-host-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ env.CARGO_CACHE_KEY }}-host
 
-      # 6️⃣ Lint • fmt • tests
+      # 6️⃣ Lint, fmt & tests
       - name: Clippy
         env: { OPENCV_PKGCONFIG_NAME: opencv4 }
         run: cargo clippy --all-targets --all-features -- -D warnings
@@ -77,11 +84,24 @@ jobs:
         env: { OPENCV_PKGCONFIG_NAME: opencv4 }
         run: cargo test --all-targets --all-features
 
-      # 7️⃣ Install cross
-      - name: Install cross
-        run: cargo install cross --git https://github.com/cross-rs/cross --tag v0.2.4
+  # ──────────────────────────────────────────────────────────────────────────────
+  build-pi:
+    name: Cross-build for aarch64 (Raspberry Pi)
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
 
-      # 8️⃣ Cache (cross / aarch64)
+    env:
+      # Force pulling fresh cross images
+      CROSS_SKIP_LOCAL_IMAGE: true
+      # Same cache key as above
+      CARGO_CACHE_KEY: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock','**/Cross.toml') }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Cache for cross build
       - name: Cache cargo (aarch64)
         uses: actions/cache@v3
         with:
@@ -90,13 +110,17 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target/aarch64-unknown-linux-gnu
-          key: ${{ runner.os }}-cargo-aarch64-${{ hashFiles('Cross.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ env.CARGO_CACHE_KEY }}-aarch64
 
-      # 9️⃣ Build Pi binary
+      # Install pinned cross
+      - name: Install cross
+        run: cargo install cross --git https://github.com/cross-rs/cross --tag v0.2.4
+
+      # Build the Pi binary
       - name: Build (aarch64-unknown-linux-gnu)
         run: cross build --release --target aarch64-unknown-linux-gnu
 
-      # 🔟 Upload artefact
+      # Upload the artifact
       - name: Upload Pi binary
         uses: actions/upload-artifact@v4
         with:
