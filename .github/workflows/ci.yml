@@ -11,65 +11,55 @@ permissions:
   pull-requests: write
 
 jobs:
-  # ──────────────────────────────────────────────────────────────────────────────
-  host-build:
-    name: x86_64: build, lint & test
+  build:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      # for host-side tests
+      OPENCV_PKGCONFIG_NAME: opencv
+      PKG_CONFIG_ALLOW_CROSS: "1"
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install host deps
+      - name: Setup QEMU for ARM64
+        uses: docker/setup-qemu-action@v2
+        with:
+          platforms: arm64
+
+      - name: Install host deps (clippy/tests)
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y \
             llvm-dev clang libclang-dev \
             pkg-config libopencv-dev
 
-      - name: Set up Rust (host)
+      - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: stable
           components: clippy,rustfmt
 
-      - name: Cache & run tests
+      - name: Cache Cargo registry & git
         uses: actions/cache@v3
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - run: cargo clippy --all-targets --all-features -- -D warnings
-      - run: cargo fmt -- --check
-      - run: cargo test --all-targets --all-features
 
-  # ──────────────────────────────────────────────────────────────────────────────
-  pi-build:
-    name: arm64: build for Raspberry Pi
-    runs-on: ubuntu-latest
-    container:
-      image: ubuntu:22.04
-      options: --platform=linux/arm64
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install ARM64 deps
+      - name: Lint, fmt & host tests
         run: |
-          apt-get update -qq
-          apt-get install -y \
-            build-essential curl pkg-config \
-            libopencv-dev libopencv-contrib-dev
+          cargo clippy --all-targets --all-features -- -D warnings
+          cargo fmt   -- --check
+          cargo test  --all-targets --all-features
 
-      - name: Install Rust (ARM64)
-        run: |
-          curl https://sh.rustup.rs -sSf | sh -s -- -y
-          source $HOME/.cargo/env
+      - name: Install cross
+        run: cargo install cross --git https://github.com/cross-rs/cross --tag v0.2.4
 
-      - name: Build release for aarch64
-        run: |
-          cargo build --release --target aarch64-unknown-linux-gnu
+      - name: Cross-compile for Raspberry Pi (aarch64)
+        run: cross build --release --target aarch64-unknown-linux-gnu
 
       - name: Upload Pi binary
         uses: actions/upload-artifact@v4
