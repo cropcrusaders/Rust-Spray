@@ -15,15 +15,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
-      # for pkg-config on host
       OPENCV_PKGCONFIG_NAME: opencv4
 
     steps:
-      # 1️⃣ Checkout your code
+      # 1️⃣ Checkout
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2️⃣ Install host deps + native OpenCV for lint/tests
+      # 2️⃣ Install host deps + native OpenCV for clippy/tests
       - name: Install host packages
         run: |
           sudo apt-get update -qq
@@ -32,41 +31,39 @@ jobs:
             libopencv-dev pkg-config \
             qemu-user-static binfmt-support
 
-      # 3️⃣ Set up Rust toolchain
+      # 3️⃣ Rust toolchain
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: stable
           components: clippy,rustfmt
 
-      # 4️⃣ Cache crates (registry & git)
-      - name: Cache cargo registry
+      # 4️⃣ Cache crates
+      - name: Cache Cargo registry
         uses: actions/cache@v3
         with:
           path: ~/.cargo/registry
           key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-      - name: Cache cargo git
+      - name: Cache Cargo git
         uses: actions/cache@v3
         with:
           path: ~/.cargo/git
           key: ${{ runner.os }}-cargo-git-${{ hashFiles('**/Cargo.lock') }}
 
-      # 5️⃣ Run lint, fmt and tests
+      # 5️⃣ Lint, fmt & tests
       - name: Clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
-
       - name: Format check
         run: cargo fmt -- --check
-
       - name: Unit tests
         run: cargo test --all-targets --all-features
 
-      # 6️⃣ Install cross for cross-compilation
+      # 6️⃣ Install cross
       - name: Install cross
         run: cargo install cross --git https://github.com/cross-rs/cross --tag v0.2.4
 
-      # 7️⃣ Cross-build under QEMU for Raspberry Pi
-      - name: Cross-build for aarch64 (Raspberry Pi)
+      # 7️⃣ Cross-build for Raspberry Pi
+      - name: Cross-build for aarch64
         run: cross build --release --target aarch64-unknown-linux-gnu
 
       # 🔟 Upload the Pi binary
