@@ -19,7 +19,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout source
+        uses: actions/checkout@v4
 
       - name: Install Rust and add to path
         run: |
@@ -44,4 +45,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: rpi-binary
-          path: target/aarch64-unknown-linux-gnu/release/*
+          path: target/aarch64-unknown-linux-gnu/release/rustspray
