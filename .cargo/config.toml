@@ -1,2 +1,8 @@
 [target.aarch64-unknown-linux-gnu]
-image = "custom/aarch64-opencv"
+runner = "cross"
+
+[build]
+target = "aarch64-unknown-linux-gnu"
+
+[unstable]
+build-std = ["std"]
