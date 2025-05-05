@@ -1,30 +1,28 @@
 name: ubi – multi‑platform build & release
 
 on:
-  #
-  # • Any push to the listed branches   → full build, artifacts in Actions tab
-  # • Push a tag matching v*            → above + draft GitHub Release
-  # • Manual trigger                    → workflow_dispatch
-  #
   push:
-    branches: [ main ]       # ⇐ change or expand this list as you wish
-    tags:
-      - 'v*'                 # version tags still hit the same workflow
+    branches: [ main ]
+    tags:     [ 'v*' ]
   workflow_dispatch:
 
 permissions:
   contents: write
   pull-requests: write
 
+#######################################################################
+#   Build & package
+#######################################################################
 jobs:
   build:
     name: Build – ${{ matrix.platform.os_name }}
+    runs-on: ${{ matrix.platform.os }}
 
     strategy:
       fail-fast: false
       matrix:
         platform:
-          # ───────────── desktop targets ─────────────
+          # ─────────── Desktop targets (unchanged) ───────────
           - os_name: FreeBSD-x86_64
             os: ubuntu-20.04
             target: x86_64-unknown-freebsd
@@ -57,96 +55,130 @@ jobs:
             cross: false
             cargo_command: cargo
 
-          # ───────────── Raspberry Pi targets ─────────────
+          # ─────────── Raspberry Pi targets (NEW logic) ───────────
           - os_name: RaspberryPi-armv7
-            os: ubuntu-20.04
+            os: ubuntu-22.04
             target: armv7-unknown-linux-gnueabihf
             bin: ubi
             name: ubi-RaspberryPi-armv7.tar.gz
-            cross: true
-            cargo_command: ./cross
+            cross: false          # <-- build natively with cargo
+            cargo_command: cargo   #    (not with cross)
 
           - os_name: RaspberryPi-aarch64
-            os: ubuntu-20.04
+            os: ubuntu-22.04
             target: aarch64-unknown-linux-gnu
             bin: ubi
             name: ubi-RaspberryPi-aarch64.tar.gz
-            cross: true
-            cargo_command: ./cross
+            cross: false
+            cargo_command: cargo
 
-    runs-on: ${{ matrix.platform.os }}
-
+    ###########################################################
+    # Steps (shared)
+    ###########################################################
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Rust (native)
-        uses: dtolnay/rust-toolchain@stable
+      # ─────────── Rust toolchain ───────────
+      - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.platform.target }}
-        if: ${{ !matrix.platform.cross }}
 
-      - name: Install musl‑tools
-        if: contains(matrix.platform.os, 'ubuntu') && !matrix.platform.cross
+      # ─────────── musl tools for native x86_64‑musl build ───────────
+      - if: contains(matrix.platform.os, 'ubuntu') && matrix.platform.target == 'x86_64-unknown-linux-musl'
         run: sudo apt-get update -y && sudo apt-get install -y musl-tools
 
+      # ─────────── Cross tool for FreeBSD build ───────────
       - name: Install cross (*nix)
         if: matrix.platform.cross && !contains(matrix.platform.os, 'windows')
-        shell: bash
         run: |
-          set -e
-          mkdir -p "$HOME/bin"
-          ./bootstrap/bootstrap-ubi.sh
-          "$HOME/bin/ubi" --project cross-rs/cross --matching musl --in .
+          sudo apt-get update -y
+          cargo install cross
 
-      - name: Install cross (Windows)
-        if: matrix.platform.cross && contains(matrix.platform.os, 'windows')
-        shell: powershell
+      ################################################################
+      # Raspberry Pi: add arch, tool‑chain, OpenCV
+      ################################################################
+      - name: Set up Raspberry Pi tool‑chain + OpenCV
+        if: matrix.platform.os_name == 'RaspberryPi-armv7'
         run: |
-          .\bootstrap\bootstrap-ubi.ps1
-          .\ubi --project cross-rs/cross --in .
+          sudo dpkg --add-architecture armhf
+          sudo apt-get update -y
+          sudo apt-get install -y \
+            gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf \
+            libopencv-dev:armhf pkg-config
+          cat >> .cargo/config.toml <<'EOF'
+          [target.armv7-unknown-linux-gnueabihf]
+          linker = "arm-linux-gnueabihf-gcc"
+          EOF
 
-      - name: Build release binary (*nix)
+      - name: Set up Raspberry Pi tool‑chain + OpenCV
+        if: matrix.platform.os_name == 'RaspberryPi-aarch64'
+        run: |
+          sudo dpkg --add-architecture arm64
+          sudo apt-get update -y
+          sudo apt-get install -y \
+            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
+            libopencv-dev:arm64 pkg-config
+          cat >> .cargo/config.toml <<'EOF'
+          [target.aarch64-unknown-linux-gnu]
+          linker = "aarch64-linux-gnu-gcc"
+          EOF
+
+      ################################################################
+      # Build
+      ################################################################
+      - name: Build (*nix)
         if: ${{ !contains(matrix.platform.os, 'windows') }}
-        shell: bash
+        env:
+          # Let pkg‑config find ARM OpenCV when cross‑compiling on Ubuntu
+          PKG_CONFIG_ALLOW_CROSS: ${{ (matrix.platform.os_name startsWith('RaspberryPi')) && '1' || '' }}
+          PKG_CONFIG_LIBDIR: ${{ matrix.platform.os_name == 'RaspberryPi-armv7' && '/usr/lib/arm-linux-gnueabihf/pkgconfig:/usr/share/pkgconfig' || (matrix.platform.os_name == 'RaspberryPi-aarch64' && '/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/share/pkgconfig' || '') }}
+          PKG_CONFIG_SYSROOT_DIR: "/"
         run: |
           ${{ matrix.platform.cargo_command }} build --locked --release --target ${{ matrix.platform.target }}
 
-      - name: Build release binary (Windows)
+      - name: Build (Windows)
         if: contains(matrix.platform.os, 'windows')
         shell: powershell
         run: |
           & ${{ matrix.platform.cargo_command }} build --locked --release --target ${{ matrix.platform.target }}
 
+      ################################################################
+      # Post‑processing
+      ################################################################
       - name: Strip binary
         if: ${{ !(matrix.platform.cross || matrix.platform.target == 'aarch64-pc-windows-msvc') }}
-        shell: bash
-        run: |
-          strip target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }}
+        run: strip target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }}
 
-      - name: Package artifact
+      - name: Package
         shell: bash
         run: |
           cd target/${{ matrix.platform.target }}/release
           if [[ "${{ matrix.platform.os }}" == "windows-latest" ]]; then
             7z a ../../../${{ matrix.platform.name }} ${{ matrix.platform.bin }}
           else
-            tar czvf ../../../${{ matrix.platform.name }} ${{ matrix.platform.bin }}
+            tar -czf ../../../${{ matrix.platform.name }} ${{ matrix.platform.bin }}
           fi
           cd -
 
-      # Always upload build artifacts so they’re visible in the Actions tab
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: ubi-${{ matrix.platform.os_name }}-${{ github.sha }}
-          path: "ubi*"
+          path: ${{ matrix.platform.name }}
 
-      # Only create a draft Release when ref is a v* tag
-      - name: Create draft GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v1
+#######################################################################
+#   Draft Release (only on version tags)
+#######################################################################
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+      - name: Collect archives
+        run: |
+          mkdir uploads
+          find . -name "ubi-*.tar.gz" -o -name "ubi-*.zip" -exec mv {} uploads/ \;
+      - uses: softprops/action-gh-release@v1
         with:
           draft: true
-          files: "ubi*"
-          body_path: Changes.md
+          files: uploads/**
