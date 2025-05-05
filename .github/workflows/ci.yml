@@ -19,10 +19,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Install Rust and add cargo to path
+      - name: Install system dependencies for OpenCV and Clang
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            pkg-config \
+            libopencv-dev \
+            clang \
+            libclang-dev \
+            cmake \
+            build-essential
+
+      - name: Install Rust and add to path
         run: |
           curl -sSf https://sh.rustup.rs | sh -s -- -y
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
@@ -33,7 +43,7 @@ jobs:
           rustup target add aarch64-unknown-linux-gnu
           cargo install cross
 
-      - name: Build with cross for Raspberry Pi
+      - name: Build for Raspberry Pi using cross
         run: |
           source "$HOME/.cargo/env"
           cross build --target aarch64-unknown-linux-gnu --release
