@@ -1,9 +1,15 @@
 FROM ubuntu:22.04
 
+# Prevent tzdata from prompting during install
+ENV DEBIAN_FRONTEND=noninteractive
+
 # Install Zig, Rust, OpenCV, and build tools
 RUN apt-get update && apt-get install -y \
     curl git build-essential cmake pkg-config \
-    libopencv-dev clang libclang-dev unzip
+    libopencv-dev clang libclang-dev unzip tzdata
+
+# Set timezone to UTC to avoid interactive tzdata config
+RUN ln -fs /usr/share/zoneinfo/UTC /etc/localtime && dpkg-reconfigure -f noninteractive tzdata
 
 # Install Rust
 RUN curl -sSf https://sh.rustup.rs | sh -s -- -y
