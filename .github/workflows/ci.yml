@@ -21,17 +21,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install system dependencies for OpenCV and Clang
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            pkg-config \
-            libopencv-dev \
-            clang \
-            libclang-dev \
-            cmake \
-            build-essential
-
       - name: Install Rust and add to path
         run: |
           curl -sSf https://sh.rustup.rs | sh -s -- -y
@@ -42,6 +31,9 @@ jobs:
           source "$HOME/.cargo/env"
           rustup target add aarch64-unknown-linux-gnu
           cargo install cross
+
+      - name: Build custom Docker image with OpenCV + Clang
+        run: docker build -t custom/aarch64-opencv -f Dockerfile.cross .
 
       - name: Build for Raspberry Pi using cross
         run: |
