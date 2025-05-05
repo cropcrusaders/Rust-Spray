@@ -1,4 +1,4 @@
-name: RustSpray CI
+name: RustSpray CI (Zig)
 
 on:
   push:
@@ -6,42 +6,23 @@ on:
   workflow_dispatch:
 
 jobs:
-  sanity-check:
-    name: 🚦 Sanity Check
-    runs-on: ubuntu-latest
-    steps:
-      - name: Show trigger info
-        run: echo "Triggered by '${{ github.event_name }}' on ref '${{ github.ref }}'"
-
-  pi-build:
-    name: 🐧 Raspberry Pi (aarch64) Build
-    needs: sanity-check
+  rpi-build:
+    name: 🐧 Build for Raspberry Pi (aarch64)
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout source
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Rust and add to path
+      - name: Build Docker image with Zig & OpenCV
+        run: docker build -t zig-rpi-builder -f Dockerfile.zig .
+
+      - name: Run build inside container
         run: |
-          curl -sSf https://sh.rustup.rs | sh -s -- -y
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          docker run --rm -v ${{ github.workspace }}:/project -w /project zig-rpi-builder \
+            bash -c "cargo zigbuild --target aarch64-unknown-linux-gnu --release"
 
-      - name: Add aarch64 target and install cross
-        run: |
-          source "$HOME/.cargo/env"
-          rustup target add aarch64-unknown-linux-gnu
-          cargo install cross
-
-      - name: Build custom Docker image with OpenCV + Clang
-        run: docker build -t custom/aarch64-opencv -f Dockerfile.cross .
-
-      - name: Build for Raspberry Pi using cross
-        run: |
-          source "$HOME/.cargo/env"
-          cross build --target aarch64-unknown-linux-gnu --release
-
-      - name: Upload Raspberry Pi binary
+      - name: Upload compiled binary
         uses: actions/upload-artifact@v4
         with:
           name: rpi-binary
