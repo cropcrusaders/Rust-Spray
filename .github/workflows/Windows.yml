@@ -1,1 +1,29 @@
+name: Build Rust for Windows
 
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust (stable)
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Upload Windows binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-windows-binary
+          path: target/release/*.exe
