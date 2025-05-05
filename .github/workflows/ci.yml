@@ -1,12 +1,30 @@
+name: ubi – multi‑platform build & release
+
+on:
+  #
+  # • Any push to the listed branches   → full build, artifacts in Actions tab
+  # • Push a tag matching v*            → above + draft GitHub Release
+  # • Manual trigger                    → workflow_dispatch
+  #
+  push:
+    branches: [ main ]       # ⇐ change or expand this list as you wish
+    tags:
+      - 'v*'                 # version tags still hit the same workflow
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
-  release:
-    name: Release – ${{ matrix.platform.os_name }}
-    if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/tags/test-release'
+  build:
+    name: Build – ${{ matrix.platform.os_name }}
 
     strategy:
+      fail-fast: false
       matrix:
         platform:
-          # ───────────── existing targets ─────────────
+          # ───────────── desktop targets ─────────────
           - os_name: FreeBSD-x86_64
             os: ubuntu-20.04
             target: x86_64-unknown-freebsd
@@ -39,14 +57,14 @@ jobs:
             cross: false
             cargo_command: cargo
 
-          # ───────────── new Raspberry Pi targets ─────────────
+          # ───────────── Raspberry Pi targets ─────────────
           - os_name: RaspberryPi-armv7
             os: ubuntu-20.04
             target: armv7-unknown-linux-gnueabihf
             bin: ubi
             name: ubi-RaspberryPi-armv7.tar.gz
             cross: true
-            cargo_command: ./cross      # provided by bootstrap‑ubi
+            cargo_command: ./cross
 
           - os_name: RaspberryPi-aarch64
             os: ubuntu-20.04
@@ -54,71 +72,59 @@ jobs:
             bin: ubi
             name: ubi-RaspberryPi-aarch64.tar.gz
             cross: true
-            cargo_command: ./cross      # provided by bootstrap‑ubi
+            cargo_command: ./cross
 
     runs-on: ${{ matrix.platform.os }}
 
     steps:
-      # 1️⃣  Checkout the code
-      - name: Checkout
-        uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      # 2️⃣  Setup Rust toolchain when NOT using cross
-      - name: Install toolchain if not cross‑compiling
+      - name: Set up Rust (native)
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.platform.target }}
         if: ${{ !matrix.platform.cross }}
 
-      # 3️⃣  Extra musl tools for native Linux static build
-      - name: Install musl-tools on Linux
-        run: sudo apt-get update -y && sudo apt-get install -y musl-tools
+      - name: Install musl‑tools
         if: contains(matrix.platform.os, 'ubuntu') && !matrix.platform.cross
+        run: sudo apt-get update -y && sudo apt-get install -y musl-tools
 
-      # 4️⃣  Install **cross** (POSIX)
-      - name: Install cross if cross‑compiling (*nix)
-        id: cross-nix
+      - name: Install cross (*nix)
+        if: matrix.platform.cross && !contains(matrix.platform.os, 'windows')
         shell: bash
         run: |
           set -e
-          export TARGET="$HOME/bin"
-          mkdir -p "$TARGET"
+          mkdir -p "$HOME/bin"
           ./bootstrap/bootstrap-ubi.sh
           "$HOME/bin/ubi" --project cross-rs/cross --matching musl --in .
-        if: matrix.platform.cross && !contains(matrix.platform.os, 'windows')
 
-      # 5️⃣  Install **cross** (Windows)
-      - name: Install cross if cross‑compiling (Windows)
-        id: cross-windows
+      - name: Install cross (Windows)
+        if: matrix.platform.cross && contains(matrix.platform.os, 'windows')
         shell: powershell
         run: |
           .\bootstrap\bootstrap-ubi.ps1
           .\ubi --project cross-rs/cross --in .
-        if: matrix.platform.cross && contains(matrix.platform.os, 'windows')
 
-      # 6️⃣  Build binary (*nix)
-      - name: Build binary (*nix)
+      - name: Build release binary (*nix)
+        if: ${{ !contains(matrix.platform.os, 'windows') }}
         shell: bash
         run: |
           ${{ matrix.platform.cargo_command }} build --locked --release --target ${{ matrix.platform.target }}
-        if: ${{ !contains(matrix.platform.os, 'windows') }}
 
-      # 7️⃣  Build binary (Windows)
-      - name: Build binary (Windows)
+      - name: Build release binary (Windows)
+        if: contains(matrix.platform.os, 'windows')
         shell: powershell
         run: |
           & ${{ matrix.platform.cargo_command }} build --locked --release --target ${{ matrix.platform.target }}
-        if: contains(matrix.platform.os, 'windows')
 
-      # 8️⃣  Strip binary where supported
       - name: Strip binary
+        if: ${{ !(matrix.platform.cross || matrix.platform.target == 'aarch64-pc-windows-msvc') }}
         shell: bash
         run: |
           strip target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }}
-        if: ${{ !(matrix.platform.cross || matrix.platform.target == 'aarch64-pc-windows-msvc') }}
 
-      # 9️⃣  Package archive
-      - name: Package as archive
+      - name: Package artifact
         shell: bash
         run: |
           cd target/${{ matrix.platform.target }}/release
@@ -129,19 +135,18 @@ jobs:
           fi
           cd -
 
-      # 🔟  Upload artifacts on test-release tag
-      - name: Publish release artifacts
-        uses: actions/upload-artifact@v3
+      # Always upload build artifacts so they’re visible in the Actions tab
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
         with:
-          name: ubi-${{ matrix.platform.os_name }}
+          name: ubi-${{ matrix.platform.os_name }}-${{ github.sha }}
           path: "ubi*"
-        if: github.ref == 'refs/tags/test-release'
 
-      # 1️⃣1️⃣  Create draft release on real tags
-      - name: Publish GitHub release
+      # Only create a draft Release when ref is a v* tag
+      - name: Create draft GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v1
         with:
           draft: true
           files: "ubi*"
           body_path: Changes.md
-        if: startsWith(github.ref, 'refs/tags/v')
