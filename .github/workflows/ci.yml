@@ -2,8 +2,8 @@ name: ubi-multi-platform-build-and-release
 
 on:
   push:
-    branches: [ main ]        # trigger on every commit to main
-    tags:     [ 'v*' ]        # and on version tags like v1.2.3
+    branches: [ main ]
+    tags:     [ 'v*' ]
   workflow_dispatch:
 
 permissions:
@@ -19,7 +19,7 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          # ---------- desktop targets ----------
+          # -------- desktop --------
           - os_name: FreeBSD-x86_64
             os: ubuntu-20.04
             target: x86_64-unknown-freebsd
@@ -52,7 +52,7 @@ jobs:
             cross: false
             cargo_command: cargo
 
-          # ---------- Raspberry Pi targets ----------
+          # -------- Raspberry Pi --------
           - os_name: RaspberryPi-armv7
             os: ubuntu-22.04
             target: armv7-unknown-linux-gnueabihf
@@ -72,54 +72,73 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Rust toolchain for the requested target
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.platform.target }}
 
-      # musl tools for native x86_64-musl
+      # ---- musl tools for x86_64-musl ----
       - if: matrix.platform.target == 'x86_64-unknown-linux-musl'
         run: sudo apt-get update -y && sudo apt-get install -y musl-tools
 
-      # Install cross for FreeBSD build
+      # ---- cross for FreeBSD build ----
       - name: Install cross
         if: matrix.platform.cross && !contains(matrix.platform.os, 'windows')
         run: |
           sudo apt-get update -y
           cargo install cross
 
-      # -------- Pi armv7 toolchain + OpenCV ----------
-      - name: Pi armv7 toolchain
+      # -------------------------------------------------------------
+      # Raspberry Pi armv7 (add ports sources, toolchain, OpenCV)
+      # -------------------------------------------------------------
+      - name: Pi armv7 toolchain + OpenCV
         if: matrix.platform.os_name == 'RaspberryPi-armv7'
         run: |
           sudo dpkg --add-architecture armhf
+
+          sudo tee /etc/apt/sources.list.d/ubuntu-ports-armhf.list >/dev/null <<'EOF'
+          deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports jammy          main restricted universe multiverse
+          deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports jammy-updates  main restricted universe multiverse
+          deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports jammy-security main restricted universe multiverse
+          EOF
+
           sudo apt-get update -y
           sudo apt-get install -y \
             gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf \
             libopencv-dev:armhf pkg-config
+
           mkdir -p .cargo
           cat >> .cargo/config.toml <<'EOF'
           [target.armv7-unknown-linux-gnueabihf]
           linker = "arm-linux-gnueabihf-gcc"
           EOF
 
-      # -------- Pi aarch64 toolchain + OpenCV --------
-      - name: Pi aarch64 toolchain
+      # -------------------------------------------------------------
+      # Raspberry Pi aarch64 (add ports sources, toolchain, OpenCV)
+      # -------------------------------------------------------------
+      - name: Pi aarch64 toolchain + OpenCV
         if: matrix.platform.os_name == 'RaspberryPi-aarch64'
         run: |
           sudo dpkg --add-architecture arm64
+
+          sudo tee /etc/apt/sources.list.d/ubuntu-ports-arm64.list >/dev/null <<'EOF'
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy          main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates  main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-security main restricted universe multiverse
+          EOF
+
           sudo apt-get update -y
           sudo apt-get install -y \
             gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
             libopencv-dev:arm64 pkg-config
+
           mkdir -p .cargo
           cat >> .cargo/config.toml <<'EOF'
           [target.aarch64-unknown-linux-gnu]
           linker = "aarch64-linux-gnu-gcc"
           EOF
 
-      # ------------------- Build ---------------------
-      - name: Build (Unix-like)
+      # ---------------- build ----------------
+      - name: Build (Unix)
         if: ${{ !contains(matrix.platform.os, 'windows') }}
         env:
           PKG_CONFIG_ALLOW_CROSS: ${{ startsWith(matrix.platform.os_name, 'RaspberryPi') && '1' || '' }}
@@ -134,12 +153,11 @@ jobs:
         run: |
           & ${{ matrix.platform.cargo_command }} build --locked --release --target ${{ matrix.platform.target }}
 
-      # Strip (where possible)
+      # ------------- strip & package -------------
       - name: Strip binary
         if: ${{ !(matrix.platform.cross || matrix.platform.target == 'aarch64-pc-windows-msvc') }}
         run: strip target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }}
 
-      # Package
       - name: Package
         shell: bash
         run: |
@@ -156,7 +174,7 @@ jobs:
           name: ubi-${{ matrix.platform.os_name }}-${{ github.sha }}
           path: ${{ matrix.platform.name }}
 
-# --------- Draft release on version tags ----------
+# -------- draft release on version tags --------
   release:
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')
