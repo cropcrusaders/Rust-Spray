@@ -10,32 +10,40 @@ readme      = "README.md"
 keywords    = ["agriculture", "precision-farming", "weed-control", "rust", "opencv"]
 categories  = ["hardware", "embedded", "science", "image-processing"]
 
-# ────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 [dependencies]
 
-opencv = { version = "0.89", default-features = false, features = ["clang-runtime", "highgui", "imgproc", "imgcodecs", "videoio", "objdetect"] }
-# ⬥ Configuration loading
+# OpenCV bindings (disable defaults, enable only needed modules)
+opencv = { version = "0.89", default-features = false, features = [
+  "clang-runtime",
+  "highgui",
+  "imgproc",
+  "imgcodecs",
+  "videoio",
+  "objdetect"
+] }
+
+# Configuration loading
 serde = { version = "1.0", features = ["derive"] }
 toml  = "0.8"
 
-# ⬥ CLI, logging, error handling
+# CLI, logging, error handling
 clap       = { version = "4.5", features = ["derive"] }
 log        = "0.4"
 env_logger = "0.11"
 thiserror  = "1.0"
 
-# ⬥ Raspberry Pi GPIO (optional)
+# Raspberry Pi GPIO support (enabled only on ARM platforms)
 rppal = { version = "0.15", optional = true }
 
-
-# ────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 [features]
 
-# Enable GPIO support by default on ARM; desktop users disable via --no-default-features
+# GPIO enabled by default (for ARM targets like Raspberry Pi)
 default    = ["with-rppal"]
 with-rppal = ["rppal"]
 
-# ────────────────────────────────────────────────────────────────────────────
-# Platform guard: allow host compilation on non-ARM without pulling in rppal
-[target.'cfg(not(target_arch = "arm"))'.dependencies]
+# ─────────────────────────────────────────────────────────────────────────────
+# Platform guard: only include `rppal` on ARM and AARCH64 targets
+[target.'cfg(not(any(target_arch = "arm", target_arch = "aarch64")))'.dependencies]
 rppal = { version = "0.15", optional = true }
