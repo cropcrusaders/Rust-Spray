@@ -10,8 +10,8 @@ jobs:
     name: 🚦 Sanity Check
     runs-on: ubuntu-latest
     steps:
-      - name: Print trigger info
-        run: echo "✅ Triggered by '${{ github.event_name }}' on ref '${{ github.ref }}'"
+      - name: Show trigger info
+        run: echo "Triggered by '${{ github.event_name }}' on ref '${{ github.ref }}'"
 
   pi-build:
     name: 🐧 Raspberry Pi (aarch64) Build
@@ -22,24 +22,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Rust and cross
+      - name: Install Rust and add cargo to path
         run: |
           curl -sSf https://sh.rustup.rs | sh -s -- -y
-          echo "source $HOME/.cargo/env" >> $GITHUB_ENV
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
-      - name: Add target and install cross
+      - name: Add aarch64 target and install cross
         run: |
-          source $HOME/.cargo/env
+          source "$HOME/.cargo/env"
           rustup target add aarch64-unknown-linux-gnu
           cargo install cross
 
-      - name: Build for Raspberry Pi
+      - name: Build with cross for Raspberry Pi
         run: |
-          source $HOME/.cargo/env
+          source "$HOME/.cargo/env"
           cross build --target aarch64-unknown-linux-gnu --release
 
-      - name: Upload binary
+      - name: Upload Raspberry Pi binary
         uses: actions/upload-artifact@v4
         with:
           name: rpi-binary
