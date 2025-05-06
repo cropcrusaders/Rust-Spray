@@ -3,7 +3,7 @@ name: ubi-multi-platform-build-and-release
 on:
   push:
     branches: [ main ]
-    tags:     [ 'v*' ]
+    tags: [ 'v*' ]
   workflow_dispatch:
 
 permissions:
@@ -19,7 +19,7 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          # -------- desktop --------
+          # ---------- Desktop targets ----------
           - os_name: FreeBSD-x86_64
             os: ubuntu-20.04
             target: x86_64-unknown-freebsd
@@ -52,7 +52,7 @@ jobs:
             cross: false
             cargo_command: cargo
 
-          # -------- Raspberry Pi --------
+          # ---------- Raspberry Pi targets ----------
           - os_name: RaspberryPi-armv7
             os: ubuntu-22.04
             target: armv7-unknown-linux-gnueabihf
@@ -70,75 +70,93 @@ jobs:
             cargo_command: cargo
 
     steps:
+      # 1) Check out the code
       - uses: actions/checkout@v4
 
+      # 2) Install stable Rust toolchain for the requested target
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.platform.target }}
 
-      # ---- musl tools for x86_64-musl ----
-      - if: matrix.platform.target == 'x86_64-unknown-linux-musl'
-        run: sudo apt-get update -y && sudo apt-get install -y musl-tools
+      # 3) Fix for Pi 404 errors: pin amd64 sources & add ports.ubuntu.com lines
+      #    We'll do it only if we're building for RaspberryPi-*
+      - name: Configure multiarch for Pi
+        if: startsWith(matrix.platform.os_name, 'RaspberryPi')
+        run: |
+          # Add the architecture
+          if [ "${{ matrix.platform.os_name }}" = "RaspberryPi-armv7" ]; then
+            sudo dpkg --add-architecture armhf
+          else
+            sudo dpkg --add-architecture arm64
+          fi
 
-      # ---- cross for FreeBSD build ----
+          # Pin default apt sources to amd64
+          sudo sed -i 's#^deb http://#deb [arch=amd64] http://#g' /etc/apt/sources.list
+          sudo sed -i 's#^deb http://#deb [arch=amd64] http://#g' /etc/apt/sources.list.d/*.list || true
+
+          # Add ports repos for the foreign arch
+          CODENAME=$(lsb_release -cs)
+          if [ "${{ matrix.platform.os_name }}" = "RaspberryPi-armv7" ]; then
+            sudo tee /etc/apt/sources.list.d/ubuntu-ports.list >/dev/null <<EOF
+deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports $CODENAME          main restricted universe multiverse
+deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports $CODENAME-updates  main restricted universe multiverse
+deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports $CODENAME-security main restricted universe multiverse
+deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports $CODENAME-backports main restricted universe multiverse
+EOF
+          else
+            sudo tee /etc/apt/sources.list.d/ubuntu-ports.list >/dev/null <<EOF
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports $CODENAME          main restricted universe multiverse
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports $CODENAME-updates  main restricted universe multiverse
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports $CODENAME-security main restricted universe multiverse
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports $CODENAME-backports main restricted universe multiverse
+EOF
+          fi
+
+          sudo apt-get update -y
+
+      # 4) Additional apt installs for special cases
+      - name: Install musl-tools
+        if: contains(matrix.platform.os, 'ubuntu') && matrix.platform.target == 'x86_64-unknown-linux-musl'
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y musl-tools
+
+      # For FreeBSD build: cross
       - name: Install cross
         if: matrix.platform.cross && !contains(matrix.platform.os, 'windows')
         run: |
           sudo apt-get update -y
           cargo install cross
 
-      # -------------------------------------------------------------
-      # Raspberry Pi armv7 (add ports sources, toolchain, OpenCV)
-      # -------------------------------------------------------------
-      - name: Pi armv7 toolchain + OpenCV
+      # For Pi: toolchains & opencv dev
+      - name: Install Pi toolchain & OpenCV
         if: matrix.platform.os_name == 'RaspberryPi-armv7'
         run: |
-          sudo dpkg --add-architecture armhf
-
-          sudo tee /etc/apt/sources.list.d/ubuntu-ports-armhf.list >/dev/null <<'EOF'
-          deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports jammy          main restricted universe multiverse
-          deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports jammy-updates  main restricted universe multiverse
-          deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports jammy-security main restricted universe multiverse
-          EOF
-
-          sudo apt-get update -y
           sudo apt-get install -y \
             gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf \
             libopencv-dev:armhf pkg-config
 
           mkdir -p .cargo
-          cat >> .cargo/config.toml <<'EOF'
-          [target.armv7-unknown-linux-gnueabihf]
-          linker = "arm-linux-gnueabihf-gcc"
-          EOF
+          cat >> .cargo/config.toml <<EOF
+[target.armv7-unknown-linux-gnueabihf]
+linker = "arm-linux-gnueabihf-gcc"
+EOF
 
-      # -------------------------------------------------------------
-      # Raspberry Pi aarch64 (add ports sources, toolchain, OpenCV)
-      # -------------------------------------------------------------
-      - name: Pi aarch64 toolchain + OpenCV
+      - name: Install Pi toolchain & OpenCV
         if: matrix.platform.os_name == 'RaspberryPi-aarch64'
         run: |
-          sudo dpkg --add-architecture arm64
-
-          sudo tee /etc/apt/sources.list.d/ubuntu-ports-arm64.list >/dev/null <<'EOF'
-          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy          main restricted universe multiverse
-          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates  main restricted universe multiverse
-          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-security main restricted universe multiverse
-          EOF
-
-          sudo apt-get update -y
           sudo apt-get install -y \
             gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
             libopencv-dev:arm64 pkg-config
 
           mkdir -p .cargo
-          cat >> .cargo/config.toml <<'EOF'
-          [target.aarch64-unknown-linux-gnu]
-          linker = "aarch64-linux-gnu-gcc"
-          EOF
+          cat >> .cargo/config.toml <<EOF
+[target.aarch64-unknown-linux-gnu]
+linker = "aarch64-linux-gnu-gcc"
+EOF
 
-      # ---------------- build ----------------
-      - name: Build (Unix)
+      # 5) Build the project
+      - name: Build (Unix-like)
         if: ${{ !contains(matrix.platform.os, 'windows') }}
         env:
           PKG_CONFIG_ALLOW_CROSS: ${{ startsWith(matrix.platform.os_name, 'RaspberryPi') && '1' || '' }}
@@ -153,12 +171,12 @@ jobs:
         run: |
           & ${{ matrix.platform.cargo_command }} build --locked --release --target ${{ matrix.platform.target }}
 
-      # ------------- strip & package -------------
+      # 6) Strip (where possible), then package as tarball or zip
       - name: Strip binary
         if: ${{ !(matrix.platform.cross || matrix.platform.target == 'aarch64-pc-windows-msvc') }}
         run: strip target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }}
 
-      - name: Package
+      - name: Package artifact
         shell: bash
         run: |
           cd target/${{ matrix.platform.target }}/release
@@ -174,16 +192,17 @@ jobs:
           name: ubi-${{ matrix.platform.os_name }}-${{ github.sha }}
           path: ${{ matrix.platform.name }}
 
-# -------- draft release on version tags --------
   release:
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
+        with:
+          path: dist
       - run: |
           mkdir uploads
-          find . -name "ubi-*.tar.gz" -o -name "ubi-*.zip" -exec mv {} uploads/ \;
+          find dist/ -name "ubi-*.tar.gz" -o -name "ubi-*.zip" -exec mv {} uploads/ \;
       - uses: softprops/action-gh-release@v1
         with:
           draft: true
