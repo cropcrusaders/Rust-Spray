@@ -1,11 +1,3 @@
-// ────────────────────────────────────────────────────────────────────────────
-// Temporary lint relaxers
-// Remove these three lines once the unused fields / helpers are wired in.
-// ────────────────────────────────────────────────────────────────────────────
-#![allow(dead_code)]
-#![allow(clippy::too_many_arguments)]
-#![allow(clippy::type_complexity)]
-
 use clap::Parser;
 use log::info;
 use opencv::highgui;
@@ -15,7 +7,6 @@ use std::error::Error;
 mod camera;
 mod config;
 mod detection;
-mod error;
 mod spray;
 mod utils;
 
