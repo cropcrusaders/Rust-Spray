@@ -10,6 +10,8 @@ device = "/dev/video2"
 # Higher resolutions (e.g., 1280x720) improve detection but may slow performance
 resolution_width = 1280
 resolution_height = 720
+# Use the Raspberry Pi camera driver (true/false)
+use_rpi_cam = false
 
 # Detection settings
 [detection]

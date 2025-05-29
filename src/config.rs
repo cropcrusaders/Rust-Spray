@@ -15,6 +15,9 @@ pub struct CameraConfig {
     pub device: String,
     pub resolution_width: u32,
     pub resolution_height: u32,
+    /// Use the Raspberry Pi camera via V4L2
+    #[serde(default)]
+    pub use_rpi_cam: bool,
 }
 
 #[derive(Deserialize)]

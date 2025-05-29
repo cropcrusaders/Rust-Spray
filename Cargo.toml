@@ -35,6 +35,8 @@ thiserror  = "1.0"
 
 # Raspberry Pi GPIO support (enabled only on ARM platforms)
 rppal = { version = "0.15", optional = true }
+# Raspberry Pi camera (V4L2)
+rscam = { version = "0.5", optional = true }
 
 # ─────────────────────────────────────────────────────────────────────────────
 [features]
@@ -42,6 +44,7 @@ rppal = { version = "0.15", optional = true }
 # GPIO enabled by default (for ARM targets like Raspberry Pi)
 default    = ["with-rppal"]
 with-rppal = ["rppal"]
+picam      = ["rscam"]
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Platform guard: only include `rppal` on ARM and AARCH64 targets
