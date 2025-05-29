@@ -2,7 +2,7 @@ name: Build-in-Docker
 
 on:
   push:
-    branches: [main]
+    branches: [main, green-on-green]
   workflow_dispatch:
 
 jobs:
