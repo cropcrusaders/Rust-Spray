@@ -11,18 +11,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build Docker image
-        # Use the Dockerfile that bundles the OpenCV-enabled cross toolchain.
-        # The previous filename referenced `Dockerfile.pi-cross`, which no longer
-        # exists in the repository and caused the workflow to fail during the
-        # image build step.
-        run: docker build -t rustspray-cross-pi5 -f Dockerfile.pi-opencv .
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.pi-opencv
+          push: true
+          tags: ghcr.io/${{ github.repository }}/rustspray-cross-pi5:latest
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}/rustspray-cross-pi5:buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository }}/rustspray-cross-pi5:buildcache,mode=max
 
       - name: Build inside Docker container
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/workspace \
-            rustspray-cross-pi5 \
+            ghcr.io/${{ github.repository }}/rustspray-cross-pi5:latest \
             bash -c "cd /workspace && cargo build --release --target aarch64-unknown-linux-gnu"
 
       - name: Upload Pi5 binary artifact
