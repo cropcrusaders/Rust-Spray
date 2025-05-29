@@ -1,0 +1,38 @@
+name: Raspberry Pi Debian Package
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-unknown-linux-gnu
+
+      - name: Install cross and cargo-deb
+        run: cargo install cross cargo-deb
+
+      - name: Build custom cross image
+        run: docker build -t custom/aarch64-opencv -f Dockerfile.pi-opencv .
+
+      - name: Cross build
+        run: cross build --release --target aarch64-unknown-linux-gnu
+
+      - name: Build Debian package
+        run: cargo deb --no-build --target aarch64-unknown-linux-gnu
+
+      - name: Upload Debian package
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: target/aarch64-unknown-linux-gnu/debian/rustspray_*.deb
+          asset_name: rustspray_${{ github.event.release.tag_name }}_arm64.deb
+          asset_content_type: application/vnd.debian.binary-package

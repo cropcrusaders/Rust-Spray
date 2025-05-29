@@ -41,6 +41,14 @@ cargo build --release --target aarch64-unknown-linux-gnu
 After compilation copy the binary from
 `target/aarch64-unknown-linux-gnu/release/` to your device.
 
+Alternatively download the pre-built Debian package from the
+[GitHub releases](https://github.com/cropcrusaders/Rust-Spray/releases)
+page and install it on the Raspberry Pi:
+
+```bash
+sudo dpkg -i rustspray_*_arm64.deb
+```
+
 ## Deployment
 
 1. Ensure the target device has OpenCV runtime libraries installed.
