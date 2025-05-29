@@ -35,6 +35,7 @@ RUN mkdir -p /aarch64-linux-gnu/lib && \
 
 # Final image: will be used by cross
 FROM messense/rust-musl-cross:aarch64-musl
+RUN rustup target add aarch64-unknown-linux-gnu
 COPY --from=builder /aarch64-linux-gnu /usr/aarch64-linux-gnu
 ENV PKG_CONFIG_PATH=/usr/aarch64-linux-gnu/lib/pkgconfig
 ENV LIBRARY_PATH=/usr/aarch64-linux-gnu/lib
