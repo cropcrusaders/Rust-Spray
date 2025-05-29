@@ -6,7 +6,7 @@ on:
   schedule:
     - cron: "0 3 * * *"             # nightly at 03:00 UTC  (adjust if you like)
   push:
-    branches: [main]                # also run after every push to main
+    branches: [main, green-on-green]                # also run after every push to main
 
 # ────────────────────── Permissions ───────────────────────
 permissions:

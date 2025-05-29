@@ -2,7 +2,7 @@ name: ubi_multi_platform_build_and_release
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "green-on-green" ]
     tags: [ "v*" ]
   workflow_dispatch:
 
