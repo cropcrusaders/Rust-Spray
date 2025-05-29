@@ -188,7 +188,8 @@ activation_duration_ms = 200
 
 - `camera.device` is the path to the video capture device.
 - `camera.use_rpi_cam` enables the Raspberry Pi camera driver when set to `true`.
-- `detection.algorithm` can be `"exg"` or `"hsv"`.
+- `detection.algorithm` can be `"exg"`, `"hsv"`, or `"onnx"`.
+- `detection.onnx_model` points to an ONNX file when using `"onnx"`.
 - `spray.pins` lists the GPIO pins used to drive the sprayers.
 
 ## Running the Controller

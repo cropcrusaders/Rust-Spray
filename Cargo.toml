@@ -38,6 +38,9 @@ rppal = { version = "0.15", optional = true }
 # Raspberry Pi camera (V4L2)
 rscam = { version = "0.5", optional = true }
 
+# ONNX runtime for neural-network based detection
+ort = { version = "1.15", features = ["image"] }
+
 # ─────────────────────────────────────────────────────────────────────────────
 [features]
 

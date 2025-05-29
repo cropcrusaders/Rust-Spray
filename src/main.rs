@@ -15,6 +15,7 @@ use std::error::Error;
 mod camera;
 mod config;
 mod detection;
+mod onnx_detection;
 mod error;
 mod spray;
 mod utils;
@@ -22,6 +23,7 @@ mod utils;
 use camera::Camera;
 use config::Config;
 use detection::GreenOnBrown;
+use onnx_detection::OnnxDetector;
 use spray::SprayController;
 
 // ─── CLI args ───────────────────────────────────────────────────────────────
@@ -55,7 +57,20 @@ fn main() -> Result<(), Box<dyn Error>> {
     info!("Camera initialised");
 
     // 3. Detection
-    let gob = GreenOnBrown::new(&config.detection.algorithm)?;
+    let gob = if config.detection.algorithm != "onnx" {
+        Some(GreenOnBrown::new(&config.detection.algorithm)?)
+    } else {
+        None
+    };
+    let onnx = if config.detection.algorithm == "onnx" {
+        if let Some(ref model) = config.detection.onnx_model {
+            Some(OnnxDetector::new(model)?)
+        } else {
+            return Err("onnx_model not specified".into());
+        }
+    } else {
+        None
+    };
     info!("Detector '{}'", config.detection.algorithm);
 
     // 4. Sprayer
@@ -68,7 +83,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     // 6. Main loop
-    run(&mut camera, &gob, &mut spray, &config, cli.show_display)
+    if let Some(detector) = onnx {
+        run_onnx(&mut camera, &detector, &mut spray, &config, cli.show_display)
+    } else if let Some(g) = gob {
+        run(&mut camera, &g, &mut spray, &config, cli.show_display)
+    } else {
+        return Err("unknown detection algorithm".into());
+    }
 }
 
 // ─── processing loop ────────────────────────────────────────────────────────
@@ -116,6 +137,39 @@ fn run(
         // ── optional display & exit key
         if show_display {
             highgui::imshow("Detection", &annotated)?;
+            if highgui::wait_key(1)? == 'q' as i32 {
+                break;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn run_onnx(
+    camera: &mut Camera,
+    detector: &OnnxDetector,
+    spray: &mut SprayController,
+    cfg: &Config,
+    show_display: bool,
+) -> Result<(), Box<dyn Error>> {
+    loop {
+        let frame = camera.capture()?;
+        info!("Frame captured");
+
+        let detections = detector.detect(&frame)?;
+        info!("ONNX detections: {}", detections.len());
+
+        if !detections.is_empty() {
+            spray.activate_all();
+            std::thread::sleep(std::time::Duration::from_millis(
+                cfg.spray.activation_duration_ms as u64,
+            ));
+            spray.deactivate_all();
+            info!("Sprayers pulsed");
+        }
+
+        if show_display {
+            highgui::imshow("Detection", &frame)?;
             if highgui::wait_key(1)? == 'q' as i32 {
                 break;
             }

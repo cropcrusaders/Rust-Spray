@@ -33,6 +33,8 @@ saturation_max = 250
 min_area = 15.0
 # Invert hue if weeds appear in unexpected color ranges
 invert_hue = true
+# Optional ONNX model path for neural detection
+# onnx_model = "models/model.onnx"
 
 # Spraying settings
 [spray]

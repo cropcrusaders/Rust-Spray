@@ -33,6 +33,8 @@ pub struct DetectionConfig {
     pub saturation_max: i32,
     pub min_area: f64,
     pub invert_hue: bool,
+    #[serde(default)]
+    pub onnx_model: Option<String>,
 }
 
 #[derive(Deserialize)]
