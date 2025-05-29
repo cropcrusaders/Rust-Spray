@@ -104,14 +104,6 @@ Refer to the project wiki for wiring diagrams and recommended peripherals.
   Install via [rustup](https://rustup.rs):
   ```bash
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-  ## Installation and Building
-
-### 1. Install Prerequisites
-
-- **Rust Toolchain:**  
-  Install via [rustup](https://rustup.rs):
-  ```bash
-  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
   ```
 
 - **System Libraries:**
