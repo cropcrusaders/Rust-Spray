@@ -19,11 +19,16 @@ Rust-Spray is a small example project that uses a camera to detect weeds and pul
    ```bash
    cargo build --release
    ```
-   For Raspberry Pi targets add the ARM64 toolchain and build with:
+   For Raspberry Pi targets install the ARM64 cross toolchain and add the target:
    ```bash
+   sudo apt-get install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
    rustup target add aarch64-unknown-linux-gnu
+   ```
+   Then build with:
+   ```bash
    cargo build --release --target aarch64-unknown-linux-gnu
    ```
+
 4. **Copy the example configuration**
    ```bash
    cp config/Config.toml config/config.toml
@@ -56,9 +61,11 @@ Rust-Spray is a small example project that uses a camera to detect weeds and pul
 
 To cross compile for Raspberry Pi (AArch64):
    ```bash
+   sudo apt-get install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
    rustup target add aarch64-unknown-linux-gnu
    cargo build --release --target aarch64-unknown-linux-gnu
    ```
+The repository's `.cargo/config.toml` configures the linker as `aarch64-linux-gnu-gcc` for this target.
 Alternatively, uncomment the `target` line in `.cargo/config.toml` to make
 cross compilation the default.
 
