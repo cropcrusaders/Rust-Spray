@@ -4,11 +4,12 @@ Rust-Spray is a small example project that uses a camera to detect weeds and pul
 
 ## Beginner Quickstart
 
-1. **Install Rust and OpenCV development libraries**
+1. **Install Rust, Cargo and OpenCV development libraries**
    ```bash
    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
    sudo apt-get update
    sudo apt-get install libopencv-dev pkg-config build-essential
+   cargo install cargo-opencv
    ```
 2. **Clone this repository**
    ```bash
