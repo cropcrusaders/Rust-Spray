@@ -163,27 +163,38 @@ Then copy `target/aarch64-unknown-linux-gnu/release/rust-spray` to the ARM devic
 
 ## Configuration
 
-Configuration files in TOML format reside in `config/`. For example:
+
+Configuration files in TOML format reside in `config/`. Copy
+`config/Config.toml` to `config/config.toml` and adjust the values for your
+hardware. The sample file looks like this:
 
 ```toml
-[gps]
-source = "nmea"
-baud   = 460800
+[camera]
+device = "/dev/video2"
+resolution_width = 1280
+resolution_height = 720
 
-[boom]
-sections      = 16
-valve_driver  = "teejet"
-pwm_frequency = 50
+[detection]
+algorithm = "hsv"
+exg_min = 20
+exg_max = 200
+hue_min = 25
+hue_max = 100
+brightness_min = 10
+brightness_max = 220
+saturation_min = 40
+saturation_max = 250
+min_area = 15.0
+invert_hue = true
 
-[logging]
-level = "info"
-file  = "logs/rust_spray.log"
+[spray]
+pins = [23, 24, 25, 26]
+activation_duration_ms = 200
 ```
 
-- `gps.source` can be `"nmea"` or `"ubx"`.  
-- `boom.sections` sets how many valve sections to control.  
-- `boom.valve_driver` specifies the driver (e.g. `"teejet"`).  
-- `logging.level` can be `"trace"`, `"debug"`, `"info"`, `"warn"`, or `"error"`.
+- `camera.device` is the path to the video capture device.
+- `detection.algorithm` can be `"exg"` or `"hsv"`.
+- `spray.pins` lists the GPIO pins used to drive the sprayers.
 
 ## Running the Controller
 
