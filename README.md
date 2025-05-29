@@ -91,6 +91,7 @@ Rust-Spray is implemented as a set of cooperative asynchronous tasks orchestrate
 - **Flow Sensor:** DigiFlow 200 for closed-loop flow control.  
 - **GPS Receiver:** u-blox F9P (RTK), typical 10+ Hz update rate.  
 - **Camera (Optional):** Pi HQ Camera v2 or USB camera for OpenCV processing.
+  Enable the `picam` Cargo feature and set `camera.use_rpi_cam = true` to use the Pi camera module.
 
 Refer to the project wiki for wiring diagrams and recommended peripherals.
 
@@ -165,6 +166,7 @@ hardware. The sample file looks like this:
 device = "/dev/video2"
 resolution_width = 1280
 resolution_height = 720
+use_rpi_cam = false
 
 [detection]
 algorithm = "hsv"
@@ -185,6 +187,7 @@ activation_duration_ms = 200
 ```
 
 - `camera.device` is the path to the video capture device.
+- `camera.use_rpi_cam` enables the Raspberry Pi camera driver when set to `true`.
 - `detection.algorithm` can be `"exg"` or `"hsv"`.
 - `spray.pins` lists the GPIO pins used to drive the sprayers.
 

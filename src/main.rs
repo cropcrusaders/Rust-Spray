@@ -46,7 +46,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     info!("Config loaded from {}", cli.config);
 
     // 2. Camera
-    let mut camera = Camera::new(&config.camera.device)?;
+    let mut camera = Camera::new(
+        &config.camera.device,
+        config.camera.resolution_width,
+        config.camera.resolution_height,
+        config.camera.use_rpi_cam,
+    )?;
     info!("Camera initialised");
 
     // 3. Detection
