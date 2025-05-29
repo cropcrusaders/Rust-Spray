@@ -8,7 +8,7 @@ RUN apt-get update && \
       libavcodec-dev libavformat-dev libswscale-dev libv4l-dev \
       libxvidcore-dev libx264-dev libjpeg-dev libpng-dev libtiff-dev gfortran \
       openexr libatlas-base-dev python3-dev python3-numpy libtbb2 libtbb-dev \
-      libdc1394-25-dev cmake git clang
+      libdc1394-dev cmake git clang
 
 # Build and install OpenCV for ARM64
 WORKDIR /opt
