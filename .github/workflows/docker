@@ -1,0 +1,11 @@
+jobs:
+  build-in-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build in Docker
+        run: |
+          docker build -t rustspray-cross-pi5 -f Dockerfile.pi-cross .
+          docker run --rm -v ${{ github.workspace }}:/workspace rustspray-cross-pi5 \
+            bash -c "cd /workspace && cargo build --release --target aarch64-unknown-linux-gnu"
