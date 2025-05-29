@@ -37,8 +37,14 @@ RUN mkdir -p /aarch64-linux-gnu/lib && \
 
 # Final image: will be used by cross
 FROM messense/rust-musl-cross:aarch64-musl
+RUN apt-get update -o Acquire::Retries=5 && \
+    apt-get install -y pkg-config
 RUN rustup target add aarch64-unknown-linux-gnu
 COPY --from=builder /aarch64-linux-gnu /usr/aarch64-linux-gnu
-ENV PKG_CONFIG_PATH=/usr/aarch64-linux-gnu/lib/pkgconfig
-ENV LIBRARY_PATH=/usr/aarch64-linux-gnu/lib
-ENV LD_LIBRARY_PATH=/usr/aarch64-linux-gnu/lib
+COPY --from=builder /usr/local/musl/aarch64-unknown-linux-musl /usr/local/musl/aarch64-unknown-linux-musl
+ENV PKG_CONFIG_PATH=/usr/aarch64-linux-gnu/lib/pkgconfig:/usr/local/musl/aarch64-unknown-linux-musl/lib/pkgconfig
+ENV LIBRARY_PATH=/usr/aarch64-linux-gnu/lib:/usr/local/musl/aarch64-unknown-linux-musl/lib
+ENV LD_LIBRARY_PATH=/usr/aarch64-linux-gnu/lib:/usr/local/musl/aarch64-unknown-linux-musl/lib
+ENV CC_x86_64_unknown_linux_gnu=/usr/bin/gcc
+ENV CXX_x86_64_unknown_linux_gnu=/usr/bin/g++
+ENV AR_x86_64_unknown_linux_gnu=/usr/bin/ar
