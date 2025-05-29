@@ -59,6 +59,8 @@ To cross compile for Raspberry Pi (AArch64):
    rustup target add aarch64-unknown-linux-gnu
    cargo build --release --target aarch64-unknown-linux-gnu
    ```
+Alternatively, uncomment the `target` line in `.cargo/config.toml` to make
+cross compilation the default.
 
 ## Configuration
 

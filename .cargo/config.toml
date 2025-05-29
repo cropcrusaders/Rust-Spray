@@ -1,8 +1,9 @@
 [target.aarch64-unknown-linux-gnu]
 runner = "cross"
 
-[build]
-target = "aarch64-unknown-linux-gnu"
+#[build]
+# Uncomment to cross compile for Raspberry Pi
+# target = "aarch64-unknown-linux-gnu"
 
 [unstable]
 build-std = ["std"]
