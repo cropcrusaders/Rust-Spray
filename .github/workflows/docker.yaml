@@ -48,10 +48,10 @@ jobs:
           docker run --rm \
             -v ${{ github.workspace }}:/workspace \
             ghcr.io/${{ steps.repo.outputs.repo_lower }}/rustspray-cross-pi5:latest \
-            bash -c "cd /workspace && cargo build --release --target aarch64-unknown-linux-gnu"
+            bash -c "cd /workspace && cargo build --release --target aarch64-unknown-linux-musl"
 
       - name: Upload Pi5 binary artifact
         uses: actions/upload-artifact@v4
         with:
           name: rustspray-pi5
-          path: target/aarch64-unknown-linux-gnu/release/rustspray
+          path: target/aarch64-unknown-linux-musl/release/rustspray
