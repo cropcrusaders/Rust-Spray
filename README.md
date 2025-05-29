@@ -69,6 +69,18 @@ The repository's `.cargo/config.toml` configures the linker as `aarch64-linux-gn
 Alternatively, uncomment the `target` line in `.cargo/config.toml` to make
 cross compilation the default.
 
+### Pre-built Raspberry Pi Package
+
+GitHub Actions builds a Debian package for Raspberry Pi (ARM64) on every
+release. Download the latest `rustspray_*.deb` from the
+[releases page](https://github.com/cropcrusaders/Rust-Spray/releases) and
+install it on the Pi with:
+
+```bash
+sudo dpkg -i rustspray_*_arm64.deb
+```
+
+
 ## Configuration
 
 Copy `config/Config.toml` to `config/config.toml` and edit as needed:
