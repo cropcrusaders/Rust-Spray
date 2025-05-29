@@ -1,0 +1,28 @@
+name: Build-in-Docker
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-in-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t rustspray-cross-pi5 -f Dockerfile.pi-cross .
+
+      - name: Build inside Docker container
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/workspace \
+            rustspray-cross-pi5 \
+            bash -c "cd /workspace && cargo build --release --target aarch64-unknown-linux-gnu"
+
+      - name: Upload Pi5 binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustspray-pi5
+          path: target/aarch64-unknown-linux-gnu/release/rustspray
