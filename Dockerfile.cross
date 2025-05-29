@@ -1,9 +1,0 @@
-FROM ghcr.io/cross-rs/aarch64-unknown-linux-gnu:edge
-
-RUN apt-get update && apt-get install -y \
-    clang \
-    libclang-dev \
-    libopencv-dev \
-    pkg-config \
-    cmake \
-    build-essential
