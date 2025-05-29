@@ -2,7 +2,8 @@ FROM ghcr.io/cross-rs/aarch64-unknown-linux-gnu:edge as builder
 
 # Install required dependencies for OpenCV
 # Use a mirror that is more reliable in CI environments and retry
-RUN sed -i 's|http://archive.ubuntu.com/ubuntu|http://azure.archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list && \
+RUN find /etc/apt -name '*.list' -print0 \
+        | xargs -0 sed -i 's|http://archive.ubuntu.com/ubuntu|http://azure.archive.ubuntu.com/ubuntu|g' && \
     apt-get update -o Acquire::Retries=5 && \
     apt-get install -y \
       pkg-config \
