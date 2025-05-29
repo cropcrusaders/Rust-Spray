@@ -93,7 +93,7 @@ Rust-Spray is implemented as a set of cooperative asynchronous tasks orchestrate
 - **Camera (Optional):** Pi HQ Camera v2 or USB camera for OpenCV processing.
   Enable the `picam` Cargo feature and set `camera.use_rpi_cam = true` to use the Pi camera module.
 
-Refer to the project wiki for wiring diagrams and recommended peripherals.
+Refer to the [wiki](wiki) for wiring diagrams and recommended peripherals.
 
 ---
 
