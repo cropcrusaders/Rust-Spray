@@ -2,6 +2,37 @@
 
 Rust-Spray is a small example project that uses a camera to detect weeds and pulse up to four sprayer outputs via GPIO pins. It targets Linux boards such as the Raspberry Pi. The detection pipeline is implemented with OpenCV in Rust.
 
+## Beginner Quickstart
+
+1. **Install Rust and OpenCV development libraries**
+   ```bash
+   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+   sudo apt-get update
+   sudo apt-get install libopencv-dev pkg-config build-essential
+   ```
+2. **Clone this repository**
+   ```bash
+   git clone https://github.com/cropcrusaders/Rust-Spray.git
+   cd Rust-Spray
+   ```
+3. **Build the project**
+   ```bash
+   cargo build --release
+   ```
+   For Raspberry Pi targets add the ARM64 toolchain and build with:
+   ```bash
+   rustup target add aarch64-unknown-linux-gnu
+   cargo build --release --target aarch64-unknown-linux-gnu
+   ```
+4. **Copy the example configuration**
+   ```bash
+   cp config/Config.toml config/config.toml
+   ```
+5. **Run the binary** (use sudo for GPIO access):
+   ```bash
+   sudo ./target/release/rust-spray --config config/config.toml --show-display
+   ```
+
 ## Features
 
 - Capture frames from a USB or Raspberry Pi camera.
@@ -57,6 +88,14 @@ invert_hue = true
 pins = [23, 24, 25, 26]
 activation_duration_ms = 200
 ```
+
+## Hardware Setup
+
+- Connect a USB webcam or the Raspberry Pi camera module.
+- Wire solenoid valves (or other actuators) to GPIO pins 23–26 as shown above.
+- Provide external drivers and power for the valves and verify fail‑safe behaviour.
+- Optional peripherals such as CAN bus adapters, flow sensors and GPS receivers can also be attached.
+- See [wiki/Wiring.md](wiki/Wiring.md) for diagrams and more details.
 
 ## Running
 
