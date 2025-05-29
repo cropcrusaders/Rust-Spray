@@ -10,7 +10,10 @@ pub struct Camera {
 
 impl Camera {
     pub fn new(device: &str) -> Result<Self, Box<dyn Error>> {
-        let capture = videoio::VideoCapture::new(device.parse::<i32>()?, videoio::CAP_ANY)?;
+        let capture = match device.parse::<i32>() {
+            Ok(index) => videoio::VideoCapture::new(index, videoio::CAP_ANY)?,
+            Err(_) => videoio::VideoCapture::from_file(device, videoio::CAP_ANY)?,
+        };
         if !capture.is_opened()? {
             return Err("Failed to open camera".into());
         }
