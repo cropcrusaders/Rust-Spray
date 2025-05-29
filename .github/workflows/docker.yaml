@@ -12,7 +12,11 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build Docker image
-        run: docker build -t rustspray-cross-pi5 -f Dockerfile.pi-cross .
+        # Use the Dockerfile that bundles the OpenCV-enabled cross toolchain.
+        # The previous filename referenced `Dockerfile.pi-cross`, which no longer
+        # exists in the repository and caused the workflow to fail during the
+        # image build step.
+        run: docker build -t rustspray-cross-pi5 -f Dockerfile.pi-opencv .
 
       - name: Build inside Docker container
         run: |
