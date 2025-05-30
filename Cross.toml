@@ -1,2 +1,5 @@
 [target.aarch64-unknown-linux-gnu]
 image = "custom/aarch64-opencv"
+
+[target.armv7-unknown-linux-gnueabihf]
+image = "custom/armv7-opencv"
