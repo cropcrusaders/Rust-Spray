@@ -32,8 +32,24 @@ jobs:
       - name: Install cross
         run: cargo install cross
 
+      - name: Restore cached cross image
+        id: cache-cross
+        uses: actions/cache@v3
+        with:
+          path: cross-image-${{ matrix.arch }}.tar
+          key: ${{ runner.os }}-${{ matrix.image }}-${{ hashFiles(matrix.dockerfile) }}
+
+      - name: Load cross image
+        if: steps.cache-cross.outputs.cache-hit == 'true'
+        run: docker load -i cross-image-${{ matrix.arch }}.tar
+
       - name: Build custom cross image
+        if: steps.cache-cross.outputs.cache-hit != 'true'
         run: docker build -t ${{ matrix.image }} -f ${{ matrix.dockerfile }} .
+
+      - name: Save cross image
+        if: steps.cache-cross.outputs.cache-hit != 'true'
+        run: docker save ${{ matrix.image }} -o cross-image-${{ matrix.arch }}.tar
 
       - name: Cross build for Raspberry Pi
         run: cross build --release --target ${{ matrix.target }}
