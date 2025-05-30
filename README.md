@@ -23,15 +23,24 @@ Rust-Spray is a small example project that uses a camera to detect weeds and pul
    ```bash
    cargo build --release
    ```
-   For Raspberry Pi targets install the ARM64 cross toolchain and add the target:
+   For Raspberry Pi targets install the appropriate cross toolchain and add the target.
+   For 64-bit OS:
    ```bash
    sudo apt-get install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
    rustup target add aarch64-unknown-linux-gnu
    ```
+   For 32-bit OS:
+   ```bash
+   sudo apt-get install gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
+   rustup target add armv7-unknown-linux-gnueabihf
+   ```
    Then build with:
    ```bash
    cargo build --release --target aarch64-unknown-linux-gnu
+   # or for 32-bit
+   cargo build --release --target armv7-unknown-linux-gnueabihf
    ```
+   Add `--features picam` if the Raspberry Pi camera module is required.
 
 4. **Copy the example configuration**
    ```bash
@@ -63,19 +72,27 @@ Rust-Spray is a small example project that uses a camera to detect weeds and pul
    cargo build --release
    ```
 
-To cross compile for Raspberry Pi (AArch64):
+To cross compile for Raspberry Pi choose the appropriate target.
+For 64-bit OS:
    ```bash
    sudo apt-get install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
    rustup target add aarch64-unknown-linux-gnu
    cargo build --release --target aarch64-unknown-linux-gnu
    ```
+For 32-bit OS:
+   ```bash
+   sudo apt-get install gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
+   rustup target add armv7-unknown-linux-gnueabihf
+   cargo build --release --target armv7-unknown-linux-gnueabihf
+   ```
+Add `--features picam` when the Raspberry Pi camera module is required.
 The repository's `.cargo/config.toml` configures the linker as `aarch64-linux-gnu-gcc` for this target.
 Alternatively, uncomment the `target` line in `.cargo/config.toml` to make
 cross compilation the default.
 
-### Pre-built Raspberry Pi Package
+### Pre-built Raspberry Pi Package
 
-GitHub Actions builds a Debian package for Raspberry Pi (ARM64) on every
+GitHub Actions builds a Debian package for Raspberry Pi (ARM64) on every
 release. Download the latest `rustspray_*.deb` from the
 [releases page](https://github.com/cropcrusaders/Rust-Spray/releases) and
 install it on the Pi with:
@@ -116,7 +133,7 @@ activation_duration_ms = 200
 
 ## Hardware Setup
 
-- Connect a USB webcam or the Raspberry Pi camera module.
+- Connect a USB webcam or the Raspberry Pi camera module.
 - Wire solenoid valves (or other actuators) to GPIO pins 23–26 as shown above.
 - Provide external drivers and power for the valves and verify fail‑safe behaviour.
 - Optional peripherals such as CAN bus adapters, flow sensors and GPS receivers can also be attached.
