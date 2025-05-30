@@ -11,7 +11,8 @@ Rust-Spray is a small example project that uses a camera to detect weeds and pul
    source "$HOME/.cargo/env"
    sudo apt-get update
    sudo apt-get install libopencv-dev pkg-config build-essential
-   cargo install cargo-opencv
+
+   cargo install cargo-opencv --git https://github.com/twistedfall/opencv-rust
    ```
 2. **Clone this repository**
    ```bash
