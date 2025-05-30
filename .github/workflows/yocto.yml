@@ -1,0 +1,27 @@
+name: Yocto Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+
+jobs:
+  build-yocto:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Init submodules
+        run: git submodule update --init --recursive
+
+      - name: Set up Poky build environment
+        run: |
+          source yocto/poky/oe-init-build-env yocto/build
+          bitbake rust-spray-image
+
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-spray-image
+          path: yocto/build/tmp/deploy/images
