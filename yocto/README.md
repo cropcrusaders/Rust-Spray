@@ -8,7 +8,7 @@ Steps to build locally:
 
 ```bash
 cd yocto
-git submodule update --init poky   # assumes poky is a submodule
+git submodule update --init --recursive poky   # assumes poky is a submodule
 source poky/oe-init-build-env build
 bitbake rust-spray-image
 ```
