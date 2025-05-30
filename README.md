@@ -87,6 +87,7 @@ For 32-bit OS:
    ```
 Add `--features picam` when the Raspberry Pi camera module is required.
 The repository's `.cargo/config.toml` configures the linker as `aarch64-linux-gnu-gcc` for this target.
+It also defines a linker for the 32-bit `armv7-unknown-linux-gnueabihf` target so you can cross compile for older Raspberry Pi models.
 Alternatively, uncomment the `target` line in `.cargo/config.toml` to make
 cross compilation the default.
 
