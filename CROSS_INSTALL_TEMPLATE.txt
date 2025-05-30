@@ -1,0 +1,9 @@
+Cross CLI Installation
+
+The cross crate is no longer published on crates.io. Install it directly from the GitHub repository at https://github.com/cross-rs/cross.
+
+You may optionally lock to a tagged release such as v0.2.6 or v0.2.7. Using the default branch works as well.
+
+In your CI job, run a cargo install command with the --git option before any cross build commands.
+
+Remember that the Docker image tag does not need to match the CLI commit. They are independent.

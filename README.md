@@ -105,12 +105,14 @@ docker build -f Dockerfile.pi-opencv -t custom/aarch64-opencv .
 docker build -f Dockerfile.pi-opencv-armv7 -t custom/armv7-opencv .
 ```
 
-Install [`cross`](https://github.com/cross-rs/cross) and build using the image.
-If the Docker image tag is newer than the latest crate on crates.io, pin the
-CLI to the published version:
+Install [`cross`](https://github.com/cross-rs/cross) from the GitHub repository
+and build using the image. The crate is no longer published on crates.io, so the
+`--git` option must be used. You may lock to a tag such as `v0.2.6` or
+`v0.2.7`, but it is also fine to install from the default branch. The Docker
+image tag does not have to match the commit used for the CLI:
 
 ```bash
-cargo install cross --version 0.2.6 --locked
+cargo install cross --git https://github.com/cross-rs/cross --locked
 cross build --release --target aarch64-unknown-linux-gnu
 ```
 
@@ -131,7 +133,7 @@ native rustup). Clone the repository and run:
 ```bash
 git clone https://github.com/cropcrusaders/Rust-Spray.git
 cd Rust-Spray
-cargo install cross
+cargo install cross --git https://github.com/cross-rs/cross --locked
 cross build --release --target aarch64-unknown-linux-gnu
 ```
 
