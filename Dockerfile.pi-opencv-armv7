@@ -1,12 +1,14 @@
-FROM ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:edge as builder
+FROM ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:edge AS builder
 
 # Install required dependencies for OpenCV
 # The base image occasionally contains an invalid Ubuntu mirror URL
 # ("archive.archive.ubuntu.com") which results in 403 errors during
 # package retrieval. Replace it with the correct mirror before running
 # `apt-get update`.
-RUN sed -i 's|archive.archive.ubuntu.com|archive.ubuntu.com|g' \
-        /etc/apt/sources.list /etc/apt/sources.list.d/*.list && \
+RUN find /etc/apt -name '*.list' -print0 \
+        | xargs -0 sed -i \
+            -e 's|archive.archive.ubuntu.com|azure.archive.ubuntu.com|g' \
+            -e 's|archive.ubuntu.com|azure.archive.ubuntu.com|g' && \
     apt-get update -o Acquire::Retries=5 && \
     apt-get install -y \
       pkg-config \
@@ -41,8 +43,10 @@ RUN mkdir -p /arm-linux-gnueabihf/lib && \
 
 # Final image: will be used by cross
 FROM ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:edge
-RUN sed -i 's|archive.archive.ubuntu.com|archive.ubuntu.com|g' \
-        /etc/apt/sources.list /etc/apt/sources.list.d/*.list && \
+RUN find /etc/apt -name '*.list' -print0 \
+        | xargs -0 sed -i \
+            -e 's|archive.archive.ubuntu.com|azure.archive.ubuntu.com|g' \
+            -e 's|archive.ubuntu.com|azure.archive.ubuntu.com|g' && \
     apt-get update -o Acquire::Retries=5 && \
     apt-get install -y pkg-config
 COPY --from=builder /arm-linux-gnueabihf /usr/arm-linux-gnueabihf
