@@ -119,6 +119,14 @@ image, for example:
 docker run --rm -it -v $(pwd):/project -w /project custom/aarch64-opencv cargo test
 ```
 
+### Troubleshooting cross-compilation
+
+If linking fails with errors like `Relocations in generic ELF (EM: 183)` or
+`file in wrong format`, the build is mixing host and target binaries. Make sure
+the `--target` flag matches the installed cross compiler and that the
+appropriate linker is configured in `.cargo/config.toml` (e.g.
+`aarch64-linux-gnu-gcc` for 64-bit Raspberry Pi).
+
 ### Windows
 
 Rust-Spray targets Linux boards, but you can cross compile from Windows using
