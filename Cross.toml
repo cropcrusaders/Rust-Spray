@@ -1,5 +1,5 @@
 [target.aarch64-unknown-linux-gnu]
-image = "custom/aarch64-opencv"
+image = "ghcr.io/your-org/aarch64-opencv:0.2.5"
 
 [target.armv7-unknown-linux-gnueabihf]
-image = "custom/armv7-opencv"
+image = "ghcr.io/your-org/armv7-opencv:0.2.5"
