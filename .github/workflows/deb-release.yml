@@ -29,7 +29,9 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Install cross and cargo-deb
-        run: cargo install cross cargo-deb
+        run: |
+          cargo install cross --version 0.2.5 --locked
+          cargo install cargo-deb --locked
 
       - name: Restore cached cross image
         id: cache-cross

@@ -30,7 +30,7 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Install cross
-        run: cargo install cross
+        run: cargo install cross --version 0.2.5 --locked
 
       - name: Restore cached cross image
         id: cache-cross
