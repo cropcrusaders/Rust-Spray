@@ -92,6 +92,53 @@ Alternatively, uncomment the `target` line in `.cargo/config.toml` to make cross
 When using `cross`, ensure Docker is available. If it prints `Falling back to cargo on the host`, the container could not start and the build may fail.
 Install the `aarch64-linux-gnu` or `arm-linux-gnueabihf` toolchain and run `cargo build --target <target>` as a fallback.
 
+## Building with Docker
+
+If you prefer to build inside a container you can create the images used by
+`cross` from the provided Dockerfiles.
+
+```bash
+# For 64-bit ARM targets
+docker build -f Dockerfile.pi-opencv -t custom/aarch64-opencv .
+
+# For 32-bit ARM targets
+docker build -f Dockerfile.pi-opencv-armv7 -t custom/armv7-opencv .
+```
+
+Install [`cross`](https://github.com/cross-rs/cross) and build using the image:
+
+```bash
+cargo install cross
+cross build --release --target aarch64-unknown-linux-gnu
+```
+
+Replace the target as needed. You can also run arbitrary commands inside the
+image, for example:
+
+```bash
+docker run --rm -it -v $(pwd):/project -w /project custom/aarch64-opencv cargo test
+```
+
+### Windows
+
+Rust-Spray targets Linux boards, but you can build from Windows using Docker
+Desktop and `cross`. Install Docker Desktop with the WSL2 backend and set up the
+Rust toolchain via `rustup`. You can clone the repository or download a ZIP from
+GitHub. Then run the following commands in **PowerShell**:
+
+```powershell
+git clone https://github.com/cropcrusaders/Rust-Spray.git
+cd Rust-Spray
+
+# Optional: build your own image
+docker build -f Dockerfile.pi-opencv -t custom/aarch64-opencv .
+
+cargo install cross
+cross build --release --target aarch64-unknown-linux-gnu
+```
+
+Ensure Docker Desktop is running so `cross` can start its container. You can
+also invoke other commands with `docker run` using the image built above.
 
 ### Pre-built Raspberry Pi Package
 
