@@ -8,4 +8,4 @@ xargo = false
 AR = "aarch64-linux-gnu-gcc-ar"
 
 [target.armv7-unknown-linux-gnueabihf]
-image = "ghcr.io/your-org/armv7-opencv:0.2.5"
+image = "ghcr.io/your-org/armv7-opencv:0.2.7"

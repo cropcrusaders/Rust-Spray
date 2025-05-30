@@ -1,4 +1,4 @@
-FROM ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:0.2.5
+FROM ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:0.2.7
 RUN apt-get update && \
     apt-get install -y --no-install-recommends libopencv-dev pkg-config && \
     rm -rf /var/lib/apt/lists/*
