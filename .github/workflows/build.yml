@@ -16,7 +16,7 @@ jobs:
         include:
           - target: aarch64-unknown-linux-gnu
             dockerfile: docker/Dockerfile.aarch64
-            image: ghcr.io/your-org/aarch64-opencv:0.2.5
+            image: ghcr.io/cropcrusaders/aarch64-opencv:0.3.0
             arch: arm64
           - target: armv7-unknown-linux-gnueabihf
             dockerfile: docker/Dockerfile.armv7

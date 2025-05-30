@@ -1,5 +1,11 @@
+
 [target.aarch64-unknown-linux-gnu]
-image = "ghcr.io/your-org/aarch64-opencv:0.2.5"
+image = "ghcr.io/cropcrusaders/aarch64-opencv:0.3.0"
+dockerfile = "docker/aarch64-opencv.dockerfile"
+xargo = false
+
+[target.aarch64-unknown-linux-gnu.env]
+AR = "aarch64-linux-gnu-gcc-ar"
 
 [target.armv7-unknown-linux-gnueabihf]
 image = "ghcr.io/your-org/armv7-opencv:0.2.5"
