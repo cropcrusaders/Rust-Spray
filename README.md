@@ -121,20 +121,24 @@ docker run --rm -it -v $(pwd):/project -w /project custom/aarch64-opencv cargo t
 
 ### Windows
 
-Rust-Spray targets Linux boards, but you can cross compile from Windows using
-the Docker setup above. Install [Docker Desktop](https://www.docker.com/products/docker-desktop)
-with the WSL2 backend and ensure `cargo` is available (either through WSL or
-native rustup). Clone the repository and run:
+Rust-Spray targets Linux boards, but you can build from Windows using Docker
+Desktop and `cross`. Install Docker Desktop with the WSL2 backend and set up
+the Rust toolchain via `rustup`. You can clone the repository or download a ZIP
+from GitHub. Then run the following commands in **PowerShell**:
 
-```bash
+```powershell
 git clone https://github.com/cropcrusaders/Rust-Spray.git
 cd Rust-Spray
+
+# Optional: build your own image
+docker build -f Dockerfile.pi-opencv -t custom/aarch64-opencv .
+
 cargo install cross
 cross build --release --target aarch64-unknown-linux-gnu
 ```
 
-Make sure Docker Desktop is running so that `cross` can launch its container.
-You may also run other commands with `docker run` as shown above.
+Ensure Docker Desktop is running so `cross` can start its container. You can
+also invoke other commands with `docker run` using the image built above.
 
 ### Pre-built Raspberry Pi Package
 
