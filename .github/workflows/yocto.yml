@@ -14,6 +14,12 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Ensure Poky sources
+        run: |
+          if [ ! -e yocto/poky/oe-init-build-env ]; then
+            git clone --depth 1 https://git.yoctoproject.org/git/poky yocto/poky
+          fi
+
       - name: Set up Poky build environment
         run: |
           source yocto/poky/oe-init-build-env yocto/build
