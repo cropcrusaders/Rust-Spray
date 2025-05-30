@@ -33,9 +33,9 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Install cross
-        # 0.2.7 Docker images exist, but the CLI crate is still 0.2.6
-        # Pin to the latest published version until 0.2.7 lands on crates.io
-        run: cargo install cross --version 0.2.6 --locked
+        # The cross crate is no longer published on crates.io.
+        # Install straight from the repository and optionally lock to a tag.
+        run: cargo install cross --git https://github.com/cross-rs/cross --locked
 
       - name: Install cargo-deb
         if: github.event_name == 'release'
