@@ -58,10 +58,17 @@ jobs:
         if: steps.cache-cross.outputs.cache-hit != 'true'
         run: docker save ${{ matrix.image }} -o cross-image-${{ matrix.arch }}.tar
 
-      - name: Cross build
+      - name: +8 GB swap to survive clang
+        uses: pierotofy/set-swap-space@v2
+        with:
+          swap-size-gb: 8
+
+      - name: Build
         env:
           PKG_CONFIG_ALLOW_CROSS: "1"
-        run: cross build --release --target ${{ matrix.target }}
+          CARGO_INCREMENTAL: "0"     # lower RAM
+          RUSTFLAGS: "-Ctarget-cpu=native"  # smaller codegen workload
+        run: cross build --release --target ${{ matrix.target }} --verbose
 
       - name: Upload artifact
         if: github.event_name != 'release'
