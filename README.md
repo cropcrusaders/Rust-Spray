@@ -211,3 +211,20 @@ bitbake rust-spray-image
 ```
 
 See `yocto/README.md` for more details.
+
+## Troubleshooting
+
+### "can't open file 'setup.py'" when using `colcon`
+
+If you integrate Rust-Spray with additional ROS 2 packages and build them
+with `colcon`, ensure each Python-based package includes a `setup.py` file.
+`colcon` fails with an error like the one below when the file is missing:
+
+```
+/usr/bin/python3: can't open file '/path/to/tractobots_navigation/setup.py':
+[Errno 2] No such file or directory
+```
+
+Add a minimal `setup.py` to the package (or switch the package to
+`ament_cmake` if it is C++ only) to resolve the issue. Refer to the ROS 2
+documentation on creating Python packages for further guidance.
