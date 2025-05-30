@@ -105,10 +105,12 @@ docker build -f Dockerfile.pi-opencv -t custom/aarch64-opencv .
 docker build -f Dockerfile.pi-opencv-armv7 -t custom/armv7-opencv .
 ```
 
-Install [`cross`](https://github.com/cross-rs/cross) and build using the image:
+Install [`cross`](https://github.com/cross-rs/cross) and build using the image.
+If the Docker image tag is newer than the latest crate on crates.io, pin the
+CLI to the published version:
 
 ```bash
-cargo install cross
+cargo install cross --version 0.2.6 --locked
 cross build --release --target aarch64-unknown-linux-gnu
 ```
 
