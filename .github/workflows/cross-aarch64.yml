@@ -9,6 +9,17 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - target: aarch64-unknown-linux-gnu
+            dockerfile: Dockerfile.pi-opencv
+            image: custom/aarch64-opencv
+            arch: aarch64
+          - target: armv7-unknown-linux-gnueabihf
+            dockerfile: Dockerfile.pi-opencv-armv7
+            image: custom/armv7-opencv
+            arch: armv7
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -16,19 +27,19 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-unknown-linux-gnu
+          targets: ${{ matrix.target }}
 
       - name: Install cross
         run: cargo install cross
 
       - name: Build custom cross image
-        run: docker build -t custom/aarch64-opencv -f Dockerfile.pi-opencv .
+        run: docker build -t ${{ matrix.image }} -f ${{ matrix.dockerfile }} .
 
       - name: Cross build for Raspberry Pi
-        run: cross build --release --target aarch64-unknown-linux-gnu
+        run: cross build --release --target ${{ matrix.target }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: rustspray-aarch64
-          path: target/aarch64-unknown-linux-gnu/release/rustspray
+          name: rustspray-${{ matrix.arch }}
+          path: target/${{ matrix.target }}/release/rustspray
