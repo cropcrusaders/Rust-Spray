@@ -16,10 +16,16 @@ it to embedded targets like the Raspberry Pi.
    sudo apt-get update
    sudo apt-get install libopencv-dev pkg-config build-essential
    ```
-   To cross compile for ARM64 also install:
+   To cross compile install the appropriate toolchain.
+   For 64-bit OS:
    ```bash
    sudo apt-get install gcc-aarch64-linux-gnu
    rustup target add aarch64-unknown-linux-gnu
+   ```
+   For 32-bit OS:
+   ```bash
+   sudo apt-get install gcc-arm-linux-gnueabihf
+   rustup target add armv7-unknown-linux-gnueabihf
    ```
 
 ## Building
@@ -32,18 +38,25 @@ cd Rust-Spray
 cargo build --release
 ```
 
-For Raspberry Pi (AArch64) cross‑compilation run:
+For Raspberry Pi cross‑compilation choose the appropriate target.
+For 64-bit OS:
 
 ```bash
 cargo build --release --target aarch64-unknown-linux-gnu
 ```
+For 32-bit OS:
+
+```bash
+cargo build --release --target armv7-unknown-linux-gnueabihf
+```
+Add `--features picam` when the Raspberry Pi camera module is required.
 
 After compilation copy the binary from
 `target/aarch64-unknown-linux-gnu/release/` to your device.
 
 Alternatively download the pre-built Debian package from the
 [GitHub releases](https://github.com/cropcrusaders/Rust-Spray/releases)
-page and install it on the Raspberry Pi:
+page and install it on the Raspberry Pi:
 
 ```bash
 sudo dpkg -i rustspray_*_arm64.deb
