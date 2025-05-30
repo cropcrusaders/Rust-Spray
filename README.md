@@ -205,7 +205,7 @@ machine with the Yocto build dependencies installed:
 
 ```bash
 cd yocto
-git submodule update --init --recursive poky
+git clone --depth 1 https://git.yoctoproject.org/git/poky poky
 source poky/oe-init-build-env build
 bitbake rust-spray-image
 ```
