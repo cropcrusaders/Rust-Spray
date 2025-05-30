@@ -15,16 +15,18 @@ jobs:
       matrix:
         include:
           - target: aarch64-unknown-linux-gnu
-            dockerfile: Dockerfile.pi-opencv
-            image: custom/aarch64-opencv
+            dockerfile: docker/Dockerfile.aarch64
+            image: ghcr.io/your-org/aarch64-opencv:0.2.5
             arch: arm64
           - target: armv7-unknown-linux-gnueabihf
-            dockerfile: Dockerfile.pi-opencv-armv7
-            image: custom/armv7-opencv
+            dockerfile: docker/Dockerfile.armv7
+            image: ghcr.io/your-org/armv7-opencv:0.2.5
             arch: armv7
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -57,6 +59,8 @@ jobs:
         run: docker save ${{ matrix.image }} -o cross-image-${{ matrix.arch }}.tar
 
       - name: Cross build
+        env:
+          PKG_CONFIG_ALLOW_CROSS: "1"
         run: cross build --release --target ${{ matrix.target }}
 
       - name: Upload artifact
