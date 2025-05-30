@@ -20,7 +20,7 @@ jobs:
             arch: arm64
           - target: armv7-unknown-linux-gnueabihf
             dockerfile: docker/Dockerfile.armv7
-            image: ghcr.io/your-org/armv7-opencv:0.2.7
+            image: ghcr.io/your-org/armv7-opencv:0.2.6
             arch: armv7
 
     steps:
