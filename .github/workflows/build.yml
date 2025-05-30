@@ -66,8 +66,7 @@ jobs:
       - name: Build
         env:
           PKG_CONFIG_ALLOW_CROSS: "1"
-          CARGO_INCREMENTAL: "0"
-          RUSTFLAGS: "-Ctarget-cpu=native"
+          CARGO_INCREMENTAL: "0"                 # still saves memory
         run: cross build --release --target ${{ matrix.target }} --verbose
 
       - name: Upload artifact
