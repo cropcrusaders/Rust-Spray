@@ -196,3 +196,18 @@ The program opens the camera, runs the detection algorithm and pulses the spraye
 ## License
 
 Rust-Spray is released under the MIT license.
+
+## Yocto Build
+
+A minimal Yocto configuration is provided in the `yocto/` directory. It builds
+a small graphical demo image containing Rust-Spray using Poky. To build on a
+machine with the Yocto build dependencies installed:
+
+```bash
+cd yocto
+git submodule update --init poky
+source poky/oe-init-build-env build
+bitbake rust-spray-image
+```
+
+See `yocto/README.md` for more details.
