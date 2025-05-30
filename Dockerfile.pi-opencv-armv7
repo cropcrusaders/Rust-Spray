@@ -8,8 +8,9 @@ FROM ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:edge AS builder
 RUN find /etc/apt -name '*.list' -print0 \
         | xargs -0 sed -i \
             -e 's|http://|https://|g' \
-            -e 's|archive.archive.ubuntu.com|azure.archive.ubuntu.com|g' \
-            -e 's|archive.ubuntu.com|azure.archive.ubuntu.com|g' && \
+            -e 's|archive.archive.ubuntu.com|archive.ubuntu.com|g' \
+            -e 's|archive.ubuntu.com|azure.archive.ubuntu.com|g' \
+            -e 's|security.ubuntu.com|azure.archive.ubuntu.com|g' && \
     printf 'Acquire::http::Pipeline-Depth "0";\nAcquire::http::No-Cache "true";\nAcquire::Retries "5";\n' > /etc/apt/apt.conf.d/99ci && \
     apt-get update && \
     apt-get install -y \
@@ -48,8 +49,9 @@ FROM ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:edge
 RUN find /etc/apt -name '*.list' -print0 \
         | xargs -0 sed -i \
             -e 's|http://|https://|g' \
-            -e 's|archive.archive.ubuntu.com|azure.archive.ubuntu.com|g' \
-            -e 's|archive.ubuntu.com|azure.archive.ubuntu.com|g' && \
+            -e 's|archive.archive.ubuntu.com|archive.ubuntu.com|g' \
+            -e 's|archive.ubuntu.com|azure.archive.ubuntu.com|g' \
+            -e 's|security.ubuntu.com|azure.archive.ubuntu.com|g' && \
     printf 'Acquire::http::Pipeline-Depth "0";\nAcquire::http::No-Cache "true";\nAcquire::Retries "5";\n' > /etc/apt/apt.conf.d/99ci && \
     apt-get update && \
     apt-get install -y pkg-config
