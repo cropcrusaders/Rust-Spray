@@ -12,8 +12,12 @@ RUN find /etc/apt -name '*.list' -print0 \
     printf 'Acquire::http::Pipeline-Depth "0";\nAcquire::http::No-Cache "true";\nAcquire::Retries "5";\n' > /etc/apt/apt.conf.d/99ci && \
     dpkg --remove-architecture i386 && \
     dpkg --remove-architecture amd64 && \
+    # Removing "restricted" and "multiverse" may leave sources lines empty after
+    # the architecture field which results in "Malformed entry ... (Component)".
+    # Rewrite them so every active line ends with "main universe".
     find /etc/apt -name '*.list' -print0 \
-        | xargs -0 sed -i -e 's/ restricted//g' -e 's/ multiverse//g' && \
+        | xargs -0 sed -i -e 's/ restricted//g' -e 's/ multiverse//g' \
+            -e 's|^\(deb[^ ]*\(\s\+\[[^]]\+\]\)?\s\+[^ ]\+\s\+[^ ]\+\)\s\+.*|\1 main universe|' && \
     apt-get -o Acquire::Retries=3 update && \
     apt-get -o Acquire::Retries=3 --fix-missing install -y \
       pkg-config \
