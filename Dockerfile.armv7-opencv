@@ -4,8 +4,8 @@ FROM ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:edge AS builder
 # Retry `apt-get update` to mitigate transient network issues
 RUN find /etc/apt -name '*.list' -print0 \
         | xargs -0 sed -i \
-            -e 's|archive.ubuntu.com|ports.ubuntu.com|g' \
-            -e 's|security.ubuntu.com|ports.ubuntu.com|g' && \
+            -e 's|archive.ubuntu.com/ubuntu|ports.ubuntu.com/ubuntu-ports|g' \
+            -e 's|security.ubuntu.com/ubuntu|ports.ubuntu.com/ubuntu-ports|g' && \
     printf 'Acquire::http::Pipeline-Depth "0";\nAcquire::http::No-Cache "true";\nAcquire::Retries "5";\n' > /etc/apt/apt.conf.d/99ci && \
     apt-get -o Acquire::Retries=3 update && \
     apt-get -o Acquire::Retries=3 --fix-missing install -y \
@@ -44,8 +44,8 @@ RUN mkdir -p /arm-linux-gnueabihf/lib && \
 FROM ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:edge
 RUN find /etc/apt -name '*.list' -print0 \
         | xargs -0 sed -i \
-            -e 's|archive.ubuntu.com|ports.ubuntu.com|g' \
-            -e 's|security.ubuntu.com|ports.ubuntu.com|g' && \
+            -e 's|archive.ubuntu.com/ubuntu|ports.ubuntu.com/ubuntu-ports|g' \
+            -e 's|security.ubuntu.com/ubuntu|ports.ubuntu.com/ubuntu-ports|g' && \
     printf 'Acquire::http::Pipeline-Depth "0";\nAcquire::http::No-Cache "true";\nAcquire::Retries "5";\n' > /etc/apt/apt.conf.d/99ci && \
     apt-get -o Acquire::Retries=3 update && \
     apt-get -o Acquire::Retries=3 --fix-missing install -y pkg-config && \
