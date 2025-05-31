@@ -132,7 +132,6 @@ jobs:
           docker build \
             -t ghcr.io/cropcrusaders/aarch64-opencv:${{ env.IMAGE_TAG }} \
             -f ${{ env.DOCKERFILE_PATH }} .
-      - name: Run cross build using that image
+      - name: Run cross build
         run: |
-          cross build --release --target aarch64-unknown-linux-gnu \
-            --image ghcr.io/cropcrusaders/aarch64-opencv:${{ env.IMAGE_TAG }}
+          cross build --release --target aarch64-unknown-linux-gnu
