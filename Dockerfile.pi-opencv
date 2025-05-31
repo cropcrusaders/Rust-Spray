@@ -1,4 +1,4 @@
-FROM ghcr.io/cross-rs/aarch64-unknown-linux-gnu:edge AS builder
+FROM ghcr.io/cross-rs/aarch64-unknown-linux-gnu:main AS builder
 
 # Install required dependencies for OpenCV
 # The base image occasionally contains an invalid Ubuntu mirror URL
@@ -43,7 +43,7 @@ RUN mkdir -p /aarch64-linux-gnu/lib && \
     cp /usr/local/lib/pkgconfig/opencv4.pc /aarch64-linux-gnu/lib/pkgconfig/
 
 # Final image: will be used by cross
-FROM ghcr.io/cross-rs/aarch64-unknown-linux-gnu:edge
+FROM ghcr.io/cross-rs/aarch64-unknown-linux-gnu:main
 RUN find /etc/apt -name '*.list' -print0 \
         | xargs -0 sed -i \
             -e 's|http://|https://|g' \
