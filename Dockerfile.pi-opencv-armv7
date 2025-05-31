@@ -7,10 +7,10 @@ FROM ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:edge AS builder
 # `apt-get update`.
 RUN find /etc/apt -name '*.list' -print0 \
         | xargs -0 sed -i \
-            -e 's|http://|https://|g' \
-            -e 's|archive.archive.ubuntu.com|ports.ubuntu.com|g' \
-            -e 's|security.archive.ubuntu.com|ports.ubuntu.com|g' && \
-    printf 'Acquire::http::Pipeline-Depth "0";\nAcquire::http::No-Cache "true";\nAcquire::Retries "5";\n' > /etc/apt/apt.conf.d/99ci && \
+            -e 's|archive.ubuntu.com|ports.ubuntu.com|g' \
+            -e 's|security.ubuntu.com|ports.ubuntu.com|g' \
+            -e 's|/ubuntu|/ubuntu-ports|g' && \
+            printf 'Acquire::http::Pipeline-Depth "0";\nAcquire::http::No-Cache "true";\nAcquire::Retries "5";\n' > /etc/apt/apt.conf.d/99ci && \
     apt-get -o Acquire::Retries=3 update && \
     apt-get -o Acquire::Retries=3 install -y \
       pkg-config \
@@ -18,7 +18,8 @@ RUN find /etc/apt -name '*.list' -print0 \
       libavcodec-dev libavformat-dev libswscale-dev libv4l-dev \
       libxvidcore-dev libx264-dev libjpeg-dev libpng-dev libtiff-dev gfortran \
       openexr libatlas-base-dev python3-dev python3-numpy libtbb2 libtbb-dev \
-      libdc1394-dev cmake git clang
+      libdc1394-dev cmake git clang && \
+    rm -rf /var/lib/apt/lists/*
 
 # Build and install OpenCV for ARMv7
 WORKDIR /opt
@@ -47,12 +48,13 @@ RUN mkdir -p /arm-linux-gnueabihf/lib && \
 FROM ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:edge
 RUN find /etc/apt -name '*.list' -print0 \
         | xargs -0 sed -i \
-            -e 's|http://|https://|g' \
-            -e 's|archive.archive.ubuntu.com|ports.ubuntu.com|g' \
-            -e 's|security.archive.ubuntu.com|ports.ubuntu.com|g' && \
-    printf 'Acquire::http::Pipeline-Depth "0";\nAcquire::http::No-Cache "true";\nAcquire::Retries "5";\n' > /etc/apt/apt.conf.d/99ci && \
+            -e 's|archive.ubuntu.com|ports.ubuntu.com|g' \
+            -e 's|security.ubuntu.com|ports.ubuntu.com|g' \
+            -e 's|/ubuntu|/ubuntu-ports|g' && \
+            printf 'Acquire::http::Pipeline-Depth "0";\nAcquire::http::No-Cache "true";\nAcquire::Retries "5";\n' > /etc/apt/apt.conf.d/99ci && \
     apt-get -o Acquire::Retries=3 update && \
-    apt-get -o Acquire::Retries=3 install -y pkg-config
+    apt-get -o Acquire::Retries=3 install -y pkg-config && \
+    rm -rf /var/lib/apt/lists/*
 COPY --from=builder /arm-linux-gnueabihf /usr/arm-linux-gnueabihf
 ENV PKG_CONFIG_PATH=/usr/arm-linux-gnueabihf/lib/pkgconfig
 ENV LIBRARY_PATH=/usr/arm-linux-gnueabihf/lib
