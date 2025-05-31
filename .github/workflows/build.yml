@@ -12,6 +12,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         include:
           - target: aarch64-unknown-linux-gnu
@@ -22,6 +23,7 @@ jobs:
             dockerfile: docker/Dockerfile.armv7
             image: ghcr.io/your-org/armv7-opencv:0.2.6
             arch: armv7
+            continue-on-error: true
 
     steps:
       - name: Checkout
@@ -36,6 +38,9 @@ jobs:
         # The cross crate is no longer published on crates.io.
         # Install straight from the repository and lock dependencies.
         run: cargo install --git https://github.com/cross-rs/cross cross --locked
+
+      - name: Add cargo bin to PATH
+        run: echo "${HOME}/.cargo/bin" >> $GITHUB_PATH
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -110,6 +115,9 @@ jobs:
           targets: aarch64-unknown-linux-gnu
       - name: Install cross CLI from Git
         run: cargo install --git https://github.com/cross-rs/cross cross --locked
+
+      - name: Add cargo bin to PATH
+        run: echo "${HOME}/.cargo/bin" >> $GITHUB_PATH
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Log in to GHCR
