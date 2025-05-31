@@ -2,15 +2,12 @@ FROM ghcr.io/cross-rs/aarch64-unknown-linux-gnu:main AS builder
 
 # Install required dependencies for OpenCV
 # Replace all existing sources with a minimal list from ports.ubuntu.com
-RUN printf 'Acquire::http::Pipeline-Depth "0";\nAcquire::http::No-Cache "true";\nAcquire::Retries "5";\n' > /etc/apt/apt.conf.d/99ci && \
-    rm -f /etc/apt/sources.list.d/ports.list && \
-    printf 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal main universe\n' \
-           'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal-updates main universe\n' \
-           'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal-security main universe\n' \
-           'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal-backports main universe\n' \
+RUN rm -rf /etc/apt/sources.list.d/* && \
+    printf 'deb http://ports.ubuntu.com/ubuntu-ports focal main universe\n' \
+           'deb http://ports.ubuntu.com/ubuntu-ports focal-updates main universe\n' \
+           'deb http://ports.ubuntu.com/ubuntu-ports focal-security main universe\n' \
+           'deb http://ports.ubuntu.com/ubuntu-ports focal-backports main universe\n' \
            > /etc/apt/sources.list && \
-    dpkg --remove-architecture amd64 || true && \
-    dpkg --remove-architecture i386 || true && \
     apt-get -o Acquire::Retries=3 update && \
     apt-get -o Acquire::Retries=3 install -y \
       pkg-config \
@@ -46,15 +43,12 @@ RUN mkdir -p /aarch64-linux-gnu/lib && \
 
 # Final image: will be used by cross
 FROM ghcr.io/cross-rs/aarch64-unknown-linux-gnu:main
-RUN find /etc/apt -name '*.list' -print0 \
-        | xargs -0 sed -i \
-            -e 's|archive.ubuntu.com/ubuntu|ports.ubuntu.com/ubuntu-ports|g' \
-            -e 's|security.ubuntu.com/ubuntu|ports.ubuntu.com/ubuntu-ports|g' && \
-    rm -f /etc/apt/sources.list.d/ports.list && \
-    printf 'Acquire::http::Pipeline-Depth "0";\nAcquire::http::No-Cache "true";\nAcquire::Retries "5";\n' > /etc/apt/apt.conf.d/99ci && \
-    dpkg --remove-architecture amd64 || true && \
-    dpkg --remove-architecture i386 || true && \
-    test -z "$(dpkg --print-foreign-architectures)" && \
+RUN rm -rf /etc/apt/sources.list.d/* && \
+    printf 'deb http://ports.ubuntu.com/ubuntu-ports focal main universe\n' \
+           'deb http://ports.ubuntu.com/ubuntu-ports focal-updates main universe\n' \
+           'deb http://ports.ubuntu.com/ubuntu-ports focal-security main universe\n' \
+           'deb http://ports.ubuntu.com/ubuntu-ports focal-backports main universe\n' \
+           > /etc/apt/sources.list && \
     apt-get -o Acquire::Retries=3 update && \
     apt-get -o Acquire::Retries=3 --fix-missing install -y pkg-config && \
     rm -rf /var/lib/apt/lists/*
