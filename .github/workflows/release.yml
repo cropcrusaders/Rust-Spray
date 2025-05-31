@@ -1,0 +1,43 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: |
+            aarch64-unknown-linux-gnu
+            armv7-unknown-linux-gnueabihf
+
+      - name: Install cross
+        run: |
+          cargo install cross --locked
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Build for aarch64
+        run: cross build --release --target aarch64-unknown-linux-gnu
+
+      - name: Build for armv7
+        run: cross build --release --target armv7-unknown-linux-gnueabihf
+
+      - name: Prepare artefacts
+        run: |
+          mkdir artefacts
+          cp target/aarch64-unknown-linux-gnu/release/rustspray artefacts/rustspray-aarch64
+          cp target/armv7-unknown-linux-gnueabihf/release/rustspray artefacts/rustspray-armv7
+
+      - name: Upload artefacts to release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artefacts/*
+          draft: false
