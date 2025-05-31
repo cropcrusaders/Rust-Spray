@@ -32,10 +32,13 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      - name: Install cross
+      - name: Install cross CLI from Git
         # The cross crate is no longer published on crates.io.
-        # Install straight from the repository and optionally lock to a tag.
-        run: cargo install cross --git https://github.com/cross-rs/cross --locked
+        # Install straight from the repository and lock dependencies.
+        run: cargo install --git https://github.com/cross-rs/cross --locked
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Install cargo-deb
         if: github.event_name == 'release'
@@ -90,3 +93,38 @@ jobs:
           asset_path: target/${{ matrix.target }}/debian/rustspray_*.deb
           asset_name: rustspray_${{ github.event.release.tag_name }}_${{ matrix.arch }}.deb
           asset_content_type: application/vnd.debian.binary-package
+
+  build-aarch64:
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_TAG: "0.3.0"
+      DOCKERFILE_PATH: "docker/Dockerfile.aarch64"
+      GHCR_USER: "cropcrusaders"
+      GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-unknown-linux-gnu
+      - name: Install cross CLI from Git
+        run: cargo install --git https://github.com/cross-rs/cross --locked
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Log in to GHCR
+        if: env.GHCR_TOKEN != ''
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ env.GHCR_USER }}
+          password: ${{ env.GHCR_TOKEN }}
+      - name: Build ARM64 builder image
+        run: |
+          docker build \
+            -t ghcr.io/cropcrusaders/aarch64-opencv:${{ env.IMAGE_TAG }} \
+            -f ${{ env.DOCKERFILE_PATH }} .
+      - name: Run cross build using that image
+        run: |
+          cross build --release --target aarch64-unknown-linux-gnu \
+            --image ghcr.io/cropcrusaders/aarch64-opencv:${{ env.IMAGE_TAG }}
