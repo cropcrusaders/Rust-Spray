@@ -5,11 +5,13 @@ FROM ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:edge AS builder
 # ("archive.archive.ubuntu.com") which results in 403 errors during
 # package retrieval. Replace it with the correct mirror before running
 # `apt-get update`.
-RUN find /etc/apt -name '*.list' -print0 \
-        | xargs -0 sed -i \
-            -e 's|archive.ubuntu.com|ports.ubuntu.com|g' \
-            -e 's|security.ubuntu.com|ports.ubuntu.com|g' \
-            -e 's|/ubuntu|/ubuntu-ports|g' && \
+RUN find /etc/apt -name '*.list' -print0 | while IFS= read -r -d '' file; do \
+        sed -i 's|archive.ubuntu.com|ports.ubuntu.com|g' "$file"; \
+        sed -i 's|security.ubuntu.com|ports.ubuntu.com|g' "$file"; \
+        sed -i 's|/ubuntu-ports-ports|/ubuntu-ports|g' "$file"; \
+        sed -i -e 's|/ubuntu\([ /]\)|/ubuntu-ports\1|g' "$file"; \
+        sed -i -e 's|/ubuntu$|/ubuntu-ports|' "$file"; \
+    done && \
             printf 'Acquire::http::Pipeline-Depth "0";\nAcquire::http::No-Cache "true";\nAcquire::Retries "5";\n' > /etc/apt/apt.conf.d/99ci && \
     apt-get -o Acquire::Retries=3 update && \
     apt-get -o Acquire::Retries=3 install -y \
@@ -46,11 +48,13 @@ RUN mkdir -p /arm-linux-gnueabihf/lib && \
 
 # Final image: will be used by cross
 FROM ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:edge
-RUN find /etc/apt -name '*.list' -print0 \
-        | xargs -0 sed -i \
-            -e 's|archive.ubuntu.com|ports.ubuntu.com|g' \
-            -e 's|security.ubuntu.com|ports.ubuntu.com|g' \
-            -e 's|/ubuntu|/ubuntu-ports|g' && \
+RUN find /etc/apt -name '*.list' -print0 | while IFS= read -r -d '' file; do \
+        sed -i 's|archive.ubuntu.com|ports.ubuntu.com|g' "$file"; \
+        sed -i 's|security.ubuntu.com|ports.ubuntu.com|g' "$file"; \
+        sed -i 's|/ubuntu-ports-ports|/ubuntu-ports|g' "$file"; \
+        sed -i -e 's|/ubuntu\([ /]\)|/ubuntu-ports\1|g' "$file"; \
+        sed -i -e 's|/ubuntu$|/ubuntu-ports|' "$file"; \
+    done && \
             printf 'Acquire::http::Pipeline-Depth "0";\nAcquire::http::No-Cache "true";\nAcquire::Retries "5";\n' > /etc/apt/apt.conf.d/99ci && \
     apt-get -o Acquire::Retries=3 update && \
     apt-get -o Acquire::Retries=3 install -y pkg-config && \
