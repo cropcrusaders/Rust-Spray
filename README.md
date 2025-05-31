@@ -99,10 +99,10 @@ If you prefer to build inside a container you can create the images used by
 
 ```bash
 # For 64-bit ARM targets
-docker build -f Dockerfile.pi-opencv -t custom/aarch64-opencv .
+docker build -f Dockerfile.pi-opencv -t ghcr.io/your-org/aarch64-opencv:latest .
 
 # For 32-bit ARM targets
-docker build -f Dockerfile.pi-opencv-armv7 -t custom/armv7-opencv .
+docker build -f Dockerfile.pi-opencv-armv7 -t ghcr.io/your-org/armv7-opencv:latest .
 ```
 
 Install [`cross`](https://github.com/cross-rs/cross) from the GitHub repository
@@ -120,7 +120,8 @@ Replace the target as needed. You can also run arbitrary commands inside the
 image, for example:
 
 ```bash
-docker run --rm -it -v $(pwd):/project -w /project custom/aarch64-opencv cargo test
+docker run --rm -it -v $(pwd):/project -w /project \
+  ghcr.io/your-org/aarch64-opencv:latest cargo test
 ```
 
 ### Windows

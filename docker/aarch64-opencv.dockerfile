@@ -1,13 +1,12 @@
-FROM ghcr.io/cross-rs/aarch64-unknown-linux-gnu:main
-RUN rm -rf /etc/apt/sources.list.d/* \
-    && printf 'deb http://ports.ubuntu.com/ubuntu-ports focal main universe\n' \
-           'deb http://ports.ubuntu.com/ubuntu-ports focal-updates main universe\n' \
-           'deb http://ports.ubuntu.com/ubuntu-ports focal-security main universe\n' \
-           'deb http://ports.ubuntu.com/ubuntu-ports focal-backports main universe\n' \
-           > /etc/apt/sources.list \
+FROM ubuntu:22.04
+
+# Enable the ARM64 architecture and clean up unused ones
+RUN dpkg --add-architecture arm64 \
+    && dpkg --remove-architecture i386 || true \
     && apt-get -o Acquire::Retries=3 update \
     && apt-get -o Acquire::Retries=3 install -y --no-install-recommends \
-        libopencv-dev \
-        pkg-config \
+        libopencv-dev:arm64 \
+        pkg-config:arm64 \
+        ninja-build:arm64 \
     && rm -rf /var/lib/apt/lists/*
 ENV PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig

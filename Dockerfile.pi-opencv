@@ -1,13 +1,8 @@
-FROM ghcr.io/cross-rs/aarch64-unknown-linux-gnu:main AS builder
+FROM ubuntu:22.04 AS builder
 
 # Install required dependencies for OpenCV
-# Replace all existing sources with a minimal list from ports.ubuntu.com
-RUN rm -rf /etc/apt/sources.list.d/* && \
-    printf 'deb http://ports.ubuntu.com/ubuntu-ports focal main universe\n' \
-           'deb http://ports.ubuntu.com/ubuntu-ports focal-updates main universe\n' \
-           'deb http://ports.ubuntu.com/ubuntu-ports focal-security main universe\n' \
-           'deb http://ports.ubuntu.com/ubuntu-ports focal-backports main universe\n' \
-           > /etc/apt/sources.list && \
+RUN dpkg --add-architecture arm64 && \
+    dpkg --remove-architecture i386 || true && \
     apt-get -o Acquire::Retries=3 update && \
     apt-get -o Acquire::Retries=3 install -y \
       pkg-config \
@@ -42,13 +37,9 @@ RUN mkdir -p /aarch64-linux-gnu/lib && \
     cp /usr/local/lib/pkgconfig/opencv4.pc /aarch64-linux-gnu/lib/pkgconfig/
 
 # Final image: will be used by cross
-FROM ghcr.io/cross-rs/aarch64-unknown-linux-gnu:main
-RUN rm -rf /etc/apt/sources.list.d/* && \
-    printf 'deb http://ports.ubuntu.com/ubuntu-ports focal main universe\n' \
-           'deb http://ports.ubuntu.com/ubuntu-ports focal-updates main universe\n' \
-           'deb http://ports.ubuntu.com/ubuntu-ports focal-security main universe\n' \
-           'deb http://ports.ubuntu.com/ubuntu-ports focal-backports main universe\n' \
-           > /etc/apt/sources.list && \
+FROM ubuntu:22.04
+RUN dpkg --add-architecture arm64 && \
+    dpkg --remove-architecture i386 || true && \
     apt-get -o Acquire::Retries=3 update && \
     apt-get -o Acquire::Retries=3 --fix-missing install -y pkg-config && \
     rm -rf /var/lib/apt/lists/*
