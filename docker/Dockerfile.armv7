@@ -1,4 +1,4 @@
 FROM ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:main
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends libopencv-dev pkg-config && \
+    apt-get install -y --no-install-recommends libopencv-dev pkg-config clang libclang-dev && \
     rm -rf /var/lib/apt/lists/*
