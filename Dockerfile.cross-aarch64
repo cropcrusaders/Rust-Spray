@@ -1,0 +1,59 @@
+# Multi-stage build container for cross compiling Rust-Spray
+# and OpenCV for aarch64 Linux targets
+
+# ------------------------------------------------------------
+# Stage 1 - Build OpenCV for aarch64
+# ------------------------------------------------------------
+ARG OPENCV_VERSION=4.8.1
+ARG CMAKE_BUILD_TYPE=Release
+FROM ubuntu:22.04 AS opencv-build
+
+# Install cross compile toolchain and build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
+        cmake ninja-build git pkg-config \
+        libgtk-3-dev libjpeg-dev libpng-dev libtiff-dev \
+        libavcodec-dev libavformat-dev libswscale-dev libv4l-dev \
+        libxvidcore-dev libx264-dev gfortran libtbb2 libtbb-dev \
+        libatlas-base-dev libdc1394-22-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt
+RUN git clone --depth 1 -b ${OPENCV_VERSION} https://github.com/opencv/opencv.git && \
+    mkdir build && cd build && \
+    cmake -G Ninja ../opencv \
+        -DCMAKE_TOOLCHAIN_FILE=/usr/share/cmake-*/Modules/Platform/Linux-aarch64.cmake \
+        -DCMAKE_INSTALL_PREFIX=/opt/opencv \
+        -DBUILD_LIST=core,imgproc,highgui,imgcodecs \
+        -DBUILD_SHARED_LIBS=ON \
+        -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} && \
+    ninja -j$(nproc) && ninja install
+
+# ------------------------------------------------------------
+# Stage 2 - Build Rust project using cross
+# ------------------------------------------------------------
+ARG RUST_TOOLCHAIN=stable
+FROM ghcr.io/cross-rs/aarch64-unknown-linux-gnu:main AS rust-build
+
+RUN rustup default ${RUST_TOOLCHAIN}
+
+# Install cross inside the container
+RUN cargo install --git https://github.com/cross-rs/cross cross --locked
+
+COPY --from=opencv-build /opt/opencv /opt/opencv
+ENV PKG_CONFIG_PATH=/opt/opencv/lib/pkgconfig
+
+WORKDIR /workspace
+COPY . /workspace
+
+RUN cross build --release --target aarch64-unknown-linux-gnu
+
+# ------------------------------------------------------------
+# Stage 3 - Runtime image
+# ------------------------------------------------------------
+FROM ubuntu:22.04 AS runtime
+COPY --from=opencv-build /opt/opencv /opt/opencv
+COPY --from=rust-build /workspace/target/aarch64-unknown-linux-gnu/release/rustspray /usr/local/bin/rustspray
+ENV LD_LIBRARY_PATH=/opt/opencv/lib
+CMD ["/usr/local/bin/rustspray"]
+

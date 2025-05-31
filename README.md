@@ -124,6 +124,17 @@ docker run --rm -it -v $(pwd):/project -w /project \
   ghcr.io/your-org/aarch64-opencv:latest cargo test
 ```
 
+An all-in-one Dockerfile named `Dockerfile.cross-aarch64` is provided for
+convenience. It builds OpenCV from source and then cross-compiles the project
+for `aarch64-unknown-linux-gnu` in a single multi-stage image. Build it with:
+
+```bash
+docker buildx build --platform linux/arm64 -t ghcr.io/your-org/rustspray:latest \
+  -f Dockerfile.cross-aarch64 .
+```
+The resulting image contains `/usr/local/bin/rustspray` together with the
+required OpenCV runtime libraries.
+
 ### Windows
 
 Rust-Spray targets Linux boards, but you can cross compile from Windows using
