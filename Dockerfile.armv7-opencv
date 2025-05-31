@@ -3,11 +3,12 @@ FROM ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:edge AS builder
 # Install required dependencies for OpenCV
 RUN printf 'Acquire::http::Pipeline-Depth "0";\nAcquire::http::No-Cache "true";\nAcquire::Retries "5";\n' > /etc/apt/apt.conf.d/99ci && \
     rm -f /etc/apt/sources.list.d/ports.list && \
-    printf 'deb http://ports.ubuntu.com/ubuntu-ports focal main universe\n' \
-           'deb http://ports.ubuntu.com/ubuntu-ports focal-updates main universe\n' \
-           'deb http://ports.ubuntu.com/ubuntu-ports focal-security main universe\n' \
-           'deb http://ports.ubuntu.com/ubuntu-ports focal-backports main universe\n' \
+    printf 'deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports focal main universe\n' \
+           'deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports focal-updates main universe\n' \
+           'deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports focal-security main universe\n' \
+           'deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports focal-backports main universe\n' \
            > /etc/apt/sources.list && \
+    dpkg --add-architecture armhf || true && \
     dpkg --remove-architecture amd64 || true && \
     dpkg --remove-architecture i386 || true && \
     test -z "$(dpkg --print-foreign-architectures)" && \
