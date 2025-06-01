@@ -29,6 +29,9 @@ jobs:
       - name: Set up Poky build environment
         run: |
           source yocto/poky/oe-init-build-env yocto/build
+          # Work around occasional Meson clock skew errors
+          # by cleaning the pixman recipe before building
+          bitbake -c clean pixman || true
           bitbake rust-spray-image
 
       - name: Upload image artifact
