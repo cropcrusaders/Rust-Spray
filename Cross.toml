@@ -1,8 +1,8 @@
 
 [target.aarch64-unknown-linux-gnu]
-image = "ghcr.io/your-org/aarch64-opencv:latest"
+image = "ghcr.io/${GHCR_USER}/aarch64-opencv:latest"
 xargo = false
 
 
 [target.armv7-unknown-linux-gnueabihf]
-image = "ghcr.io/your-org/armv7-opencv:latest"
+image = "ghcr.io/${GHCR_USER}/armv7-opencv:latest"

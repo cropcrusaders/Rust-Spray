@@ -99,16 +99,21 @@ If you prefer to build inside a container you can create the images used by
 
 ```bash
 # For 64-bit ARM targets
-docker build -f Dockerfile.pi-opencv -t ghcr.io/your-org/aarch64-opencv:latest .
+docker build -f Dockerfile.pi-opencv -t ghcr.io/<your-namespace>/aarch64-opencv:latest .
 
 # For 32-bit ARM targets
-docker build -f Dockerfile.pi-opencv-armv7 -t ghcr.io/your-org/armv7-opencv:latest .
+docker build -f Dockerfile.pi-opencv-armv7 -t ghcr.io/<your-namespace>/armv7-opencv:latest .
 ```
 
 These Dockerfiles install common build tools and now include
 `libunwind-dev` for the target architecture. This resolves missing
 dependencies when building ROS 2 packages such as `nav2` inside the
 container.
+
+When publishing these images to GitHub Container Registry (GHCR) you must
+provide a `GHCR_TOKEN` secret with `write:packages` permission. The
+workflows use `${{ github.repository_owner }}` as the namespace for the
+image tags, so the token needs permission to push to that account.
 
 Install [`cross`](https://github.com/cross-rs/cross) from the GitHub repository
 and build using the image. The crate is no longer published on crates.io, so the
@@ -126,7 +131,7 @@ image, for example:
 
 ```bash
 docker run --rm -it -v $(pwd):/project -w /project \
-  ghcr.io/your-org/aarch64-opencv:latest cargo test
+  ghcr.io/<your-namespace>/aarch64-opencv:latest cargo test
 ```
 
 An all-in-one Dockerfile named `Dockerfile.cross-aarch64` is provided for
@@ -134,7 +139,7 @@ convenience. It builds OpenCV from source and then cross-compiles the project
 for `aarch64-unknown-linux-gnu` in a single multi-stage image. Build it with:
 
 ```bash
-docker buildx build --platform linux/arm64 -t ghcr.io/your-org/rustspray:latest \
+docker buildx build --platform linux/arm64 -t ghcr.io/<your-namespace>/rustspray:latest \
   -f Dockerfile.cross-aarch64 .
 ```
 The resulting image contains `/usr/local/bin/rustspray` together with the

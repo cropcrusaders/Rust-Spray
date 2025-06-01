@@ -12,15 +12,17 @@ jobs:
   build:
     needs: [build-aarch64-image, build-armv7]
     runs-on: ubuntu-latest
+    env:
+      GHCR_USER: ${{ github.repository_owner }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - target: aarch64-unknown-linux-gnu
-            image: ghcr.io/your-org/aarch64-opencv:latest
+            image: ghcr.io/${{ github.repository_owner }}/aarch64-opencv:latest
             arch: arm64
           - target: armv7-unknown-linux-gnueabihf
-            image: ghcr.io/your-org/armv7-opencv:latest
+            image: ghcr.io/${{ github.repository_owner }}/armv7-opencv:latest
             arch: armv7
             continue-on-error: true
 
@@ -87,7 +89,7 @@ jobs:
     env:
       IMAGE_TAG: "latest"
       DOCKERFILE_PATH: "docker/Dockerfile.aarch64"
-      GHCR_USER: "your-org"
+      GHCR_USER: ${{ github.repository_owner }}
       GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
     steps:
       - uses: actions/checkout@v4
@@ -101,19 +103,28 @@ jobs:
           username: ${{ env.GHCR_USER }}
           password: ${{ env.GHCR_TOKEN }}
       - name: Build and push ARM64 builder image
+        if: env.GHCR_TOKEN != ''
         run: |
           docker buildx build \
             --platform linux/arm64 \
-            -t ghcr.io/your-org/aarch64-opencv:${{ env.IMAGE_TAG }} \
+            -t ghcr.io/${{ env.GHCR_USER }}/aarch64-opencv:${{ env.IMAGE_TAG }} \
             -f ${{ env.DOCKERFILE_PATH }} \
             --push .
+      - name: Build ARM64 image without push
+        if: env.GHCR_TOKEN == ''
+        run: |
+          docker buildx build \
+            --platform linux/arm64 \
+            -t ghcr.io/${{ env.GHCR_USER }}/aarch64-opencv:${{ env.IMAGE_TAG }} \
+            -f ${{ env.DOCKERFILE_PATH }} \
+            --load .
 
   build-armv7:
     runs-on: ubuntu-latest
     env:
       IMAGE_TAG: "latest"
       DOCKERFILE_PATH: "docker/Dockerfile.armv7"
-      GHCR_USER: "your-org"
+      GHCR_USER: ${{ github.repository_owner }}
       GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
     steps:
       - uses: actions/checkout@v4
@@ -131,8 +142,8 @@ jobs:
       - name: Build ARMv7 builder image
         run: |
           docker build \
-            -t ghcr.io/your-org/armv7-opencv:${{ env.IMAGE_TAG }} \
+            -t ghcr.io/${{ env.GHCR_USER }}/armv7-opencv:${{ env.IMAGE_TAG }} \
             -f ${{ env.DOCKERFILE_PATH }} .
       - name: Push image
         if: env.GHCR_TOKEN != ''
-        run: docker push ghcr.io/your-org/armv7-opencv:${{ env.IMAGE_TAG }}
+        run: docker push ghcr.io/${{ env.GHCR_USER }}/armv7-opencv:${{ env.IMAGE_TAG }}
