@@ -105,6 +105,11 @@ docker build -f Dockerfile.pi-opencv -t ghcr.io/your-org/aarch64-opencv:latest .
 docker build -f Dockerfile.pi-opencv-armv7 -t ghcr.io/your-org/armv7-opencv:latest .
 ```
 
+These Dockerfiles install common build tools and now include
+`libunwind-dev` for the target architecture. This resolves missing
+dependencies when building ROS 2 packages such as `nav2` inside the
+container.
+
 Install [`cross`](https://github.com/cross-rs/cross) from the GitHub repository
 and build using the image. The crate is no longer published on crates.io, so the
 `--git` option must be used. You may lock to a tag such as `v0.2.6` or
