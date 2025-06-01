@@ -1,5 +1,16 @@
 FROM ubuntu:22.04 AS builder
 
+# Configure tzdata non-interactively to avoid prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Australia/Brisbane
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends tzdata && \
+    ln -fs /usr/share/zoneinfo/${TZ} /etc/localtime && \
+    echo ${TZ} > /etc/timezone && \
+    dpkg-reconfigure -f noninteractive tzdata && \
+    rm -rf /var/lib/apt/lists/*
+
 # Install required dependencies for OpenCV
 RUN dpkg --add-architecture armhf && \
     dpkg --remove-architecture i386 || true && \
@@ -39,6 +50,15 @@ RUN mkdir -p /arm-linux-gnueabihf/lib && \
 
 # Final image: will be used by cross
 FROM ubuntu:22.04
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Australia/Brisbane
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends tzdata && \
+    ln -fs /usr/share/zoneinfo/${TZ} /etc/localtime && \
+    echo ${TZ} > /etc/timezone && \
+    dpkg-reconfigure -f noninteractive tzdata && \
+    rm -rf /var/lib/apt/lists/*
 RUN dpkg --add-architecture armhf && \
     dpkg --remove-architecture i386 || true && \
     apt-get -o Acquire::Retries=3 update && \
