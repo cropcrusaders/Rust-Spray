@@ -1,5 +1,16 @@
 FROM ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:edge AS builder
 
+# Configure tzdata non-interactively to avoid prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Australia/Brisbane
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends tzdata && \
+    ln -fs /usr/share/zoneinfo/${TZ} /etc/localtime && \
+    echo ${TZ} > /etc/timezone && \
+    dpkg-reconfigure -f noninteractive tzdata && \
+    rm -rf /var/lib/apt/lists/*
+
 # Install required dependencies for OpenCV
 RUN rm -rf /etc/apt/sources.list.d/* && \
     printf 'deb http://ports.ubuntu.com/ubuntu-ports focal main universe\n' \
@@ -42,6 +53,15 @@ RUN mkdir -p /arm-linux-gnueabihf/lib && \
 
 # Final image: will be used by cross
 FROM ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:edge
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Australia/Brisbane
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends tzdata && \
+    ln -fs /usr/share/zoneinfo/${TZ} /etc/localtime && \
+    echo ${TZ} > /etc/timezone && \
+    dpkg-reconfigure -f noninteractive tzdata && \
+    rm -rf /var/lib/apt/lists/*
 RUN rm -rf /etc/apt/sources.list.d/* && \
     printf 'deb http://ports.ubuntu.com/ubuntu-ports focal main universe\n' \
            'deb http://ports.ubuntu.com/ubuntu-ports focal-updates main universe\n' \

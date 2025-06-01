@@ -1,6 +1,17 @@
 # ---------- build stage: fetch all the right armhf libs ----------
 FROM --platform=linux/amd64 ubuntu:22.04 AS pkgstage
 
+# Configure tzdata non-interactively to avoid prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Australia/Brisbane
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends tzdata && \
+    ln -fs /usr/share/zoneinfo/${TZ} /etc/localtime && \
+    echo ${TZ} > /etc/timezone && \
+    dpkg-reconfigure -f noninteractive tzdata && \
+    rm -rf /var/lib/apt/lists/*
+
 # Enable armhf architecture and Universe repo (where libav* lives)
 RUN dpkg --add-architecture armhf && \
     sed -Ei 's/^deb /deb [arch=amd64] /' /etc/apt/sources.list && \
