@@ -99,10 +99,10 @@ If you prefer to build inside a container you can create the images used by
 
 ```bash
 # For 64-bit ARM targets
-docker build -f Dockerfile.pi-opencv -t ghcr.io/your-org/aarch64-opencv:latest .
+docker build -f Dockerfile.pi-opencv -t ghcr.io/cropcrusaders/aarch64-opencv:latest .
 
 # For 32-bit ARM targets
-docker build -f Dockerfile.pi-opencv-armv7 -t ghcr.io/your-org/armv7-opencv:latest .
+docker build -f Dockerfile.pi-opencv-armv7 -t ghcr.io/cropcrusaders/armv7-opencv:latest .
 ```
 
 These Dockerfiles install common build tools and now include
@@ -126,7 +126,7 @@ image, for example:
 
 ```bash
 docker run --rm -it -v $(pwd):/project -w /project \
-  ghcr.io/your-org/aarch64-opencv:latest cargo test
+  ghcr.io/cropcrusaders/aarch64-opencv:latest cargo test
 ```
 
 An all-in-one Dockerfile named `Dockerfile.cross-aarch64` is provided for
@@ -134,7 +134,7 @@ convenience. It builds OpenCV from source and then cross-compiles the project
 for `aarch64-unknown-linux-gnu` in a single multi-stage image. Build it with:
 
 ```bash
-docker buildx build --platform linux/arm64 -t ghcr.io/your-org/rustspray:latest \
+docker buildx build --platform linux/arm64 -t ghcr.io/cropcrusaders/rustspray:latest \
   -f Dockerfile.cross-aarch64 .
 ```
 The resulting image contains `/usr/local/bin/rustspray` together with the
