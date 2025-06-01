@@ -9,6 +9,7 @@ Steps to build locally:
 ```bash
 cd yocto
 git clone --depth 1 https://git.yoctoproject.org/git/poky poky   # fetch Poky if not using submodules
+git clone --depth 1 https://github.com/openembedded/meta-openembedded.git meta-openembedded
 source poky/oe-init-build-env build
 # Edit `conf/local.conf` and replace the deprecated
 # `EXTRA_IMAGE_FEATURES ?= "debug-tweaks"` line with:

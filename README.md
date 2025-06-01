@@ -240,6 +240,7 @@ machine with the Yocto build dependencies installed:
 ```bash
 cd yocto
 git clone --depth 1 https://git.yoctoproject.org/git/poky poky
+git clone --depth 1 https://github.com/openembedded/meta-openembedded.git meta-openembedded
 source poky/oe-init-build-env build
 bitbake rust-spray-image
 ```
