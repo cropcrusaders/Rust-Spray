@@ -10,6 +10,9 @@ Steps to build locally:
 cd yocto
 git clone --depth 1 https://git.yoctoproject.org/git/poky poky   # fetch Poky if not using submodules
 source poky/oe-init-build-env build
+# Edit `conf/local.conf` and replace the deprecated
+# `EXTRA_IMAGE_FEATURES ?= "debug-tweaks"` line with:
+# `EXTRA_IMAGE_FEATURES ?= "allow-root-login allow-empty-password"`
 bitbake rust-spray-image
 ```
 
