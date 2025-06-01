@@ -20,6 +20,12 @@ jobs:
             git clone --depth 1 https://git.yoctoproject.org/git/poky yocto/poky
           fi
 
+      - name: Ensure meta-openembedded layer
+        run: |
+          if [ ! -e yocto/meta-openembedded/meta-oe ]; then
+            git clone --depth 1 https://github.com/openembedded/meta-openembedded.git yocto/meta-openembedded
+          fi
+
       - name: Set up Poky build environment
         run: |
           source yocto/poky/oe-init-build-env yocto/build
