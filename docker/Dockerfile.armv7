@@ -3,6 +3,8 @@ FROM --platform=linux/amd64 ubuntu:22.04 AS pkgstage
 
 # Enable armhf architecture and Universe repo (where libav* lives)
 RUN dpkg --add-architecture armhf && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends software-properties-common && \
     sed -Ei 's/^# deb-src/deb-src/' /etc/apt/sources.list && \
     add-apt-repository universe && \
     apt-get update
