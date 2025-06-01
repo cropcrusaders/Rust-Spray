@@ -123,6 +123,25 @@ log in before running `docker pull`:
 echo <your_token> | docker login ghcr.io -u <your_username> --password-stdin
 ```
 
+In GitHub Actions set the workflow permissions so the automatically
+generated `GITHUB_TOKEN` can read packages, then authenticate using the
+Docker login action before pulling:
+
+```yaml
+permissions:
+  packages: read
+  contents: read
+
+steps:
+  - uses: actions/checkout@v4
+  - name: Log in to GHCR
+    uses: docker/login-action@v3
+    with:
+      registry: ghcr.io
+      username: ${{ github.repository_owner }}
+      password: ${{ secrets.GITHUB_TOKEN }}
+```
+
 Install [`cross`](https://github.com/cross-rs/cross) from the GitHub repository
 and build using the image. The crate is no longer published on crates.io, so the
 `--git` option must be used. You may lock to a tag such as `v0.2.6` or
