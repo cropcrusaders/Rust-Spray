@@ -19,6 +19,7 @@ RUN apt-get update \
         pkg-config \
         cmake \
         curl \
+        ca-certificates \
         ffmpeg \
         libopencv-dev \
         libavcodec-dev \
