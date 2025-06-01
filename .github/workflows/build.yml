@@ -37,6 +37,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Substitute GHCR_USER in Cross.toml
+        run: |
+          envsubst < Cross.toml > Cross.expanded.toml
+          mv Cross.expanded.toml Cross.toml
+        env:
+          GHCR_USER: ${{ github.repository_owner }}
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
