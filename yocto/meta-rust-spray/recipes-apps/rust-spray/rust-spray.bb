@@ -2,7 +2,7 @@ DESCRIPTION = "Rust-Spray weed detection application"
 LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://../../../../LICENSE;md5=9d852dbaca7af3fd17c0249a3f04e40d"
 
-SRC_URI = "git://github.com/cropcrusaders/Rust-Spray.git;branch=main"
+SRC_URI = "git://github.com/cropcrusaders/Rust-Spray.git;branch=main;protocol=https"
 SRCREV = "${AUTOREV}"
 
 S = "${WORKDIR}/git"
