@@ -122,7 +122,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       IMAGE_TAG: "latest"
-      DOCKERFILE_PATH: "docker/Dockerfile.aarch64"
+      DOCKERFILE_PATH: "docker/aarch64-opencv.dockerfile"
       GHCR_USER: ${{ github.repository_owner }}
       GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
     steps:
@@ -139,7 +139,7 @@ jobs:
         if: env.GHCR_TOKEN != ''
         run: |
           docker buildx build \
-            --platform linux/arm64 \
+            --platform linux/amd64 \
             -t ghcr.io/${{ env.GHCR_USER }}/aarch64-opencv:${{ env.IMAGE_TAG }} \
             -f ${{ env.DOCKERFILE_PATH }} \
             --push .
@@ -147,7 +147,7 @@ jobs:
         if: env.GHCR_TOKEN == ''
         run: |
           docker buildx build \
-            --platform linux/arm64 \
+            --platform linux/amd64 \
             -t ghcr.io/${{ env.GHCR_USER }}/aarch64-opencv:${{ env.IMAGE_TAG }} \
             -f ${{ env.DOCKERFILE_PATH }} \
             --load .
