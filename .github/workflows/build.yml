@@ -26,9 +26,11 @@ jobs:
           - target: aarch64-unknown-linux-gnu
             image: ghcr.io/${{ github.repository_owner }}/aarch64-opencv:latest
             arch: arm64
+            tar: aarch64-opencv.tar
           - target: armv7-unknown-linux-gnueabihf
             image: ghcr.io/${{ github.repository_owner }}/armv7-opencv:latest
             arch: armv7
+            tar: armv7-opencv.tar
             continue-on-error: true
 
     steps:
@@ -63,7 +65,20 @@ jobs:
         run: cargo install cargo-deb --locked
 
       - name: Pull cross image
+        if: env.GHCR_TOKEN != ''
         run: docker pull ${{ matrix.image }}
+
+      - name: Download cross image artifact
+        if: env.GHCR_TOKEN == ''
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.arch }}-opencv-image
+          path: .
+
+      - name: Load cross image
+        if: env.GHCR_TOKEN == ''
+        run: |
+          docker load -i ${{ matrix.tar }}
 
       - name: +8 GB swap to survive clang
         uses: pierotofy/set-swap-space@v1.0
@@ -129,6 +144,15 @@ jobs:
             -t ghcr.io/${{ env.GHCR_USER }}/aarch64-opencv:${{ env.IMAGE_TAG }} \
             -f ${{ env.DOCKERFILE_PATH }} \
             --load .
+      - name: Save ARM64 image artifact
+        if: env.GHCR_TOKEN == ''
+        run: docker save ghcr.io/${{ env.GHCR_USER }}/aarch64-opencv:${{ env.IMAGE_TAG }} -o aarch64-opencv.tar
+      - name: Upload ARM64 image artifact
+        if: env.GHCR_TOKEN == ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: arm64-opencv-image
+          path: aarch64-opencv.tar
 
   build-armv7:
     runs-on: ubuntu-latest
@@ -157,3 +181,12 @@ jobs:
       - name: Push image
         if: env.GHCR_TOKEN != ''
         run: docker push ghcr.io/${{ env.GHCR_USER }}/armv7-opencv:${{ env.IMAGE_TAG }}
+      - name: Save ARMv7 image artifact
+        if: env.GHCR_TOKEN == ''
+        run: docker save ghcr.io/${{ env.GHCR_USER }}/armv7-opencv:${{ env.IMAGE_TAG }} -o armv7-opencv.tar
+      - name: Upload ARMv7 image artifact
+        if: env.GHCR_TOKEN == ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: armv7-opencv-image
+          path: armv7-opencv.tar
