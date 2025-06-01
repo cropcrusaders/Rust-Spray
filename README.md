@@ -115,6 +115,14 @@ provide a `GHCR_TOKEN` secret with `write:packages` permission. The
 workflows use `${{ github.repository_owner }}` as the namespace for the
 image tags, so the token needs permission to push to that account.
 
+To **pull** these images from GHCR you must also authenticate. Use a
+Personal Access Token (PAT) with at least `read:packages` permission and
+log in before running `docker pull`:
+
+```bash
+echo <your_token> | docker login ghcr.io -u <your_username> --password-stdin
+```
+
 Install [`cross`](https://github.com/cross-rs/cross) from the GitHub repository
 and build using the image. The crate is no longer published on crates.io, so the
 `--git` option must be used. You may lock to a tag such as `v0.2.6` or
