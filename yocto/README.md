@@ -14,6 +14,9 @@ source poky/oe-init-build-env build
 # Edit `conf/local.conf` and replace the deprecated
 # `EXTRA_IMAGE_FEATURES ?= "debug-tweaks"` line with:
 # `EXTRA_IMAGE_FEATURES ?= "allow-root-login allow-empty-password"`
+# If the build fails with a Meson "clock skew" error, clean
+# the pixman recipe first:
+bitbake -c clean pixman
 bitbake rust-spray-image
 ```
 
