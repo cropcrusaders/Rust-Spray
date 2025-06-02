@@ -35,7 +35,7 @@ RUN apt-get install -y --no-install-recommends \
         libswscale-dev:armhf
 
 # ---------- final stage: image that cross will mount as sysroot ----------
-FROM --platform=linux/arm/v7 ubuntu:22.04
+FROM --platform=linux/amd64 ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Australia/Brisbane
