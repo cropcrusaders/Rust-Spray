@@ -1,5 +1,17 @@
 FROM ubuntu:22.04
 
+# Configure tzdata non-interactively so image builds do not block waiting
+# for timezone selection when a package pulls it in as a dependency.
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Australia/Brisbane
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends tzdata && \
+    ln -fs /usr/share/zoneinfo/${TZ} /etc/localtime && \
+    echo ${TZ} > /etc/timezone && \
+    dpkg-reconfigure -f noninteractive tzdata && \
+    rm -rf /var/lib/apt/lists/*
+
 # Enable the ARM64 architecture for cross-compiling OpenCV. The default
 # sources in the Ubuntu image only contain packages for the host
 # architecture.  When we add a foreign architecture apt will attempt to
