@@ -1,5 +1,16 @@
 FROM ubuntu:22.04 AS builder
 
+# Configure tzdata non-interactively to avoid prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Australia/Brisbane
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends tzdata && \
+    ln -fs /usr/share/zoneinfo/${TZ} /etc/localtime && \
+    echo ${TZ} > /etc/timezone && \
+    dpkg-reconfigure -f noninteractive tzdata && \
+    rm -rf /var/lib/apt/lists/*
+
 # Install required dependencies for OpenCV
 RUN dpkg --add-architecture arm64 && \
     dpkg --remove-architecture i386 || true && \
@@ -39,7 +50,16 @@ RUN mkdir -p /aarch64-linux-gnu/lib && \
 
 # Final image: will be used by cross
 FROM ubuntu:22.04
-RUN dpkg --add-architecture arm64 && \
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Australia/Brisbane
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends tzdata && \
+    ln -fs /usr/share/zoneinfo/${TZ} /etc/localtime && \
+    echo ${TZ} > /etc/timezone && \
+    dpkg-reconfigure -f noninteractive tzdata && \
+    rm -rf /var/lib/apt/lists/* && \
+    dpkg --add-architecture arm64 && \
     dpkg --remove-architecture i386 || true && \
     apt-get -o Acquire::Retries=3 update && \
     apt-get -o Acquire::Retries=3 --fix-missing install -y pkg-config && \
