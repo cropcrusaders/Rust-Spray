@@ -29,6 +29,7 @@ RUN dpkg --add-architecture arm64 \
     && apt-get -o Acquire::Retries=3 install -y --no-install-recommends \
         build-essential \
         gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
+        libc6-dev-arm64-cross linux-libc-dev-arm64-cross \
         libopencv-dev:arm64 \
         pkg-config \
         ninja-build \
