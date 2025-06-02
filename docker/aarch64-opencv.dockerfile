@@ -27,6 +27,8 @@ RUN dpkg --add-architecture arm64 \
     && printf 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-backports main restricted universe multiverse\n' >> /etc/apt/sources.list.d/arm64.list \
     && apt-get -o Acquire::Retries=3 update \
     && apt-get -o Acquire::Retries=3 install -y --no-install-recommends \
+        build-essential \
+        gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
         libopencv-dev:arm64 \
         pkg-config:arm64 \
         ninja-build:arm64 \
