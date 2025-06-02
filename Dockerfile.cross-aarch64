@@ -8,6 +8,17 @@ ARG OPENCV_VERSION=4.8.1
 ARG CMAKE_BUILD_TYPE=Release
 FROM ubuntu:22.04 AS opencv-build
 
+# Configure tzdata non-interactively so builds do not block waiting for
+# timezone selection when any package pulls it in as a dependency.
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Australia/Brisbane
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends tzdata && \
+    ln -fs /usr/share/zoneinfo/${TZ} /etc/localtime && \
+    echo ${TZ} > /etc/timezone && \
+    dpkg-reconfigure -f noninteractive tzdata && \
+    rm -rf /var/lib/apt/lists/*
+
 # Install cross compile toolchain and build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
         gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
