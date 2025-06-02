@@ -8,7 +8,7 @@ FROM ubuntu:22.04
 # arm64 packages instead.
 RUN dpkg --add-architecture arm64 \
     && dpkg --remove-architecture i386 || true \
-    && sed -Ei 's@http://archive.ubuntu.com/ubuntu@http://ports.ubuntu.com/ubuntu-ports@g' /etc/apt/sources.list \
+    && sed -Ei 's@http://archive.ubuntu.com/ubuntu@http://ports.ubuntu.com/ubuntu-ports@g;s@http://security.ubuntu.com/ubuntu@http://ports.ubuntu.com/ubuntu-ports@g' /etc/apt/sources.list \
     && apt-get -o Acquire::Retries=3 update \
     && apt-get -o Acquire::Retries=3 install -y --no-install-recommends \
         libopencv-dev:arm64 \
