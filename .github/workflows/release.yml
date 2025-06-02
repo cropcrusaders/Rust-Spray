@@ -18,6 +18,7 @@ jobs:
           mv Cross.expanded.toml Cross.toml
         env:
           GHCR_USER: ${{ github.repository_owner }}
+          TZ: Australia/Brisbane
 
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
