@@ -1,12 +1,11 @@
 FROM ubuntu:22.04
 
-# Enable the ARM64 architecture. The default Ubuntu sources only host
-# amd64 packages, so switch to the ports repository which provides
-# binaries for additional architectures before attempting to install
-# ARM64 packages.
+# Enable the ARM64 architecture for cross-compiling OpenCV. The default
+# Ubuntu mirrors already provide arm64 packages, so we simply add the
+# architecture and keep the existing sources list intact. This avoids
+# 404 errors when the amd64 repositories are queried.
 RUN dpkg --add-architecture arm64 \
     && dpkg --remove-architecture i386 || true \
-    && sed -i 's|http://archive.ubuntu.com/ubuntu|http://ports.ubuntu.com/ubuntu-ports|g' /etc/apt/sources.list \
     && apt-get -o Acquire::Retries=3 update \
     && apt-get -o Acquire::Retries=3 install -y --no-install-recommends \
         libopencv-dev:arm64 \
