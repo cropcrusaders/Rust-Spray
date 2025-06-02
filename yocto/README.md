@@ -17,6 +17,8 @@ source poky/oe-init-build-env build
 # If the build fails with a Meson "clock skew" error, clean
 # the pixman recipe first:
 bitbake -c clean pixman
+# If glib fails during configuration, clean its native recipe:
+bitbake -c clean glib-2.0-native
 bitbake rust-spray-image
 ```
 

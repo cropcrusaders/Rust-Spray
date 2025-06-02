@@ -261,6 +261,10 @@ cd yocto
 git clone --depth 1 https://git.yoctoproject.org/git/poky poky
 git clone --depth 1 https://github.com/openembedded/meta-openembedded.git meta-openembedded
 source poky/oe-init-build-env build
+# If the build fails with a Meson "clock skew" error, clean pixman first
+bitbake -c clean pixman
+# If glib fails during configuration, clean its native recipe
+bitbake -c clean glib-2.0-native
 bitbake rust-spray-image
 ```
 

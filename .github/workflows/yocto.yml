@@ -32,6 +32,8 @@ jobs:
           # Work around occasional Meson clock skew errors
           # by cleaning the pixman recipe before building
           bitbake -c clean pixman || true
+          # Also clean glib to avoid intermittent Meson failures
+          bitbake -c clean glib-2.0-native || true
           bitbake rust-spray-image
 
       - name: Upload image artifact
