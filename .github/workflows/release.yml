@@ -32,6 +32,9 @@ jobs:
           cargo install --git https://github.com/cross-rs/cross cross --locked
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Build for aarch64
         run: cross build --release --target aarch64-unknown-linux-gnu
 
