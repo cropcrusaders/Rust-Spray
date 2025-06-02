@@ -55,6 +55,7 @@ jobs:
       if: env.no_changes == 'false'
       env:
         GH_TOKEN: ${{ secrets.PAT_PUSH}}     # authenticate gh CLI
+        TZ: Australia/Brisbane
       run: |
         # unique branch name
         BRANCH="lockfix/refresh-$(date +%Y-%m-%d-%H%M)"

@@ -19,6 +19,7 @@ jobs:
     env:
       GHCR_USER: ${{ github.repository_owner }}
       GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+      TZ: Australia/Brisbane
     strategy:
       fail-fast: false
       matrix:
@@ -125,6 +126,7 @@ jobs:
       DOCKERFILE_PATH: "docker/aarch64-opencv.dockerfile"
       GHCR_USER: ${{ github.repository_owner }}
       GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+      TZ: Australia/Brisbane
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
@@ -168,6 +170,7 @@ jobs:
       DOCKERFILE_PATH: "docker/Dockerfile.armv7"
       GHCR_USER: ${{ github.repository_owner }}
       GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+      TZ: Australia/Brisbane
     steps:
       - uses: actions/checkout@v4
       - name: Set up QEMU (needed for multi-arch builds)
