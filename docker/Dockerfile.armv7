@@ -60,6 +60,8 @@ COPY --from=pkgstage /usr/lib/arm-linux-gnueabihf/ /usr/lib/arm-linux-gnueabihf/
 COPY --from=pkgstage /usr/include/arm-linux-gnueabihf/ /usr/include/arm-linux-gnueabihf/
 
 # make pkg-config aware of the armhf .pc files
-ENV PKG_CONFIG_LIBDIR=/usr/lib/arm-linux-gnueabihf/pkgconfig:/usr/share/pkgconfig
+ENV PKG_CONFIG_PATH=/usr/lib/arm-linux-gnueabihf/pkgconfig \
+    PKG_CONFIG_LIBDIR=/usr/lib/arm-linux-gnueabihf/pkgconfig:/usr/share/pkgconfig \
+    PKG_CONFIG_SYSROOT_DIR=/
 
 # nothing else needed – this is a “sysroot only” image for cross-rs
