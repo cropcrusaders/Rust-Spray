@@ -31,6 +31,6 @@ RUN dpkg --add-architecture arm64 \
         gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
         libopencv-dev:arm64 \
         pkg-config:arm64 \
-        ninja-build:arm64 \
-    && rm -rf /var/lib/apt/lists/*
+        ninja-build \
+        && rm -rf /var/lib/apt/lists/*
 ENV PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig
