@@ -1,4 +1,8 @@
-FROM ubuntu:22.04
+# Start from the official cross image so the required
+# cross-compilation tooling and pkg-config wrappers are
+# already available. This avoids "pkg-config has not been
+# configured" errors when building OpenCV crates.
+FROM ghcr.io/cross-rs/aarch64-unknown-linux-gnu:edge
 
 # Configure tzdata non-interactively so image builds do not block waiting
 # for timezone selection when a package pulls it in as a dependency.
