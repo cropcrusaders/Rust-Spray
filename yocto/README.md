@@ -19,6 +19,8 @@ source poky/oe-init-build-env build
 bitbake -c clean pixman
 # If glib fails during configuration, clean its native recipe:
 bitbake -c clean glib-2.0-native
+# If it still fails during the initial build, clean that recipe as well:
+bitbake -c clean glib-2.0-initial
 bitbake rust-spray-image
 ```
 
