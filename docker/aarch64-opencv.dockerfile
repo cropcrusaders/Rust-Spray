@@ -20,14 +20,6 @@ RUN apt-get update && \
 RUN rm -rf /etc/apt/sources.list.d/* && \
     dpkg --add-architecture arm64 && \
     dpkg --remove-architecture i386 || true && \
-    printf 'deb [arch=amd64] http://archive.ubuntu.com/ubuntu focal main restricted universe multiverse\n' > /etc/apt/sources.list && \
-    printf 'deb [arch=amd64] http://archive.ubuntu.com/ubuntu focal-updates main restricted universe multiverse\n' >> /etc/apt/sources.list && \
-    printf 'deb [arch=amd64] http://archive.ubuntu.com/ubuntu focal-security main restricted universe multiverse\n' >> /etc/apt/sources.list && \
-    printf 'deb [arch=amd64] http://archive.ubuntu.com/ubuntu focal-backports main restricted universe multiverse\n' >> /etc/apt/sources.list && \
-    printf 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal main restricted universe multiverse\n' > /etc/apt/sources.list.d/arm64.list && \
-    printf 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal-updates main restricted universe multiverse\n' >> /etc/apt/sources.list.d/arm64.list && \
-    printf 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal-security main restricted universe multiverse\n' >> /etc/apt/sources.list.d/arm64.list && \
-    printf 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal-backports main restricted universe multiverse\n' >> /etc/apt/sources.list.d/arm64.list && \
     apt-get -o Acquire::Retries=3 update && \
     apt-get -o Acquire::Retries=3 install -y --no-install-recommends \
         build-essential \
