@@ -17,16 +17,23 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 RUN rm -rf /etc/apt/sources.list.d/* && \
+    # cross-rs base images restrict apt to amd64 packages only. Retain the host
+    # repositories and add arm64 sources from the Ubuntu ports archive so we can
+    # fetch dependencies for the sysroot.
+    sed -Ei '/^deb \[/! s/^deb /deb [arch=amd64] /' /etc/apt/sources.list && \
+    printf 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal main universe restricted\n' > /etc/apt/sources.list.d/arm64.list && \
+    printf 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal-updates main universe restricted\n' >> /etc/apt/sources.list.d/arm64.list && \
+    printf 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal-security main universe restricted\n' >> /etc/apt/sources.list.d/arm64.list && \
     dpkg --add-architecture arm64 && \
     dpkg --remove-architecture i386 || true && \
     apt-get -o Acquire::Retries=3 update && \
     apt-get -o Acquire::Retries=3 install -y --no-install-recommends \
         build-essential \
         gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
-        cmake ninja-build git pkg-config \
+        cmake ninja-build git pkg-config clang \
         libgtk-3-dev:arm64 libjpeg-dev:arm64 libpng-dev:arm64 libtiff-dev:arm64 \
         libavcodec-dev:arm64 libavformat-dev:arm64 libswscale-dev:arm64 libv4l-dev:arm64 \
-        libxvidcore-dev:arm64 libx264-dev:arm64 gfortran:arm64 libtbb2:arm64 libtbb-dev:arm64 \
+        libxvidcore-dev:arm64 libx264-dev:arm64 libtbb2:arm64 libtbb-dev:arm64 \
         libatlas-base-dev:arm64 libdc1394-22-dev:arm64 && \
     rm -rf /var/lib/apt/lists/*
 
@@ -35,7 +42,7 @@ ENV CXX=aarch64-linux-gnu-g++
 
 # Build OpenCV for the aarch64 sysroot
 WORKDIR /opt
-RUN git clone --depth 1 -b 4.11.0 https://github.com/opencv/opencv.git && \
+RUN git clone --depth 1 -b 4.10.0 https://github.com/opencv/opencv.git && \
     mkdir build && cd build && \
     cmake -G Ninja ../opencv \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
