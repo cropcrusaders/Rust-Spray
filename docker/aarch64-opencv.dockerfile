@@ -25,6 +25,7 @@ RUN rm -rf /etc/apt/sources.list.d/* && \
         build-essential \
         gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
         libc6-dev-arm64-cross linux-libc-dev-arm64-cross \
+        libopencv-dev:arm64 \
         libopencv-core-dev:arm64 \
         libopencv-imgproc-dev:arm64 \
         libopencv-highgui-dev:arm64 \
