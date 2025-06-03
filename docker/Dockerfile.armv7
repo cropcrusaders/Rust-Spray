@@ -13,11 +13,12 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Enable armhf architecture and Universe repo (where libav* lives)
-RUN dpkg --add-architecture armhf && \
+RUN CODENAME=$(. /etc/os-release && echo $VERSION_CODENAME) && \
+    dpkg --add-architecture armhf && \
     sed -Ei '/^deb \[/! s/^deb /deb [arch=amd64] /' /etc/apt/sources.list && \
-    printf 'deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports jammy main universe restricted\n' > /etc/apt/sources.list.d/armhf.list && \
-    printf 'deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports jammy-updates main universe restricted\n' >> /etc/apt/sources.list.d/armhf.list && \
-    printf 'deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports jammy-security main universe restricted\n' >> /etc/apt/sources.list.d/armhf.list && \
+    printf 'deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports %s main universe restricted\n' "$CODENAME" > /etc/apt/sources.list.d/armhf.list && \
+    printf 'deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports %s-updates main universe restricted\n' "$CODENAME" >> /etc/apt/sources.list.d/armhf.list && \
+    printf 'deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports %s-security main universe restricted\n' "$CODENAME" >> /etc/apt/sources.list.d/armhf.list && \
     apt-get -o Acquire::Retries=3 update && \
     apt-get install -y --no-install-recommends software-properties-common && \
     sed -Ei 's/^# deb-src/deb-src/' /etc/apt/sources.list && \
