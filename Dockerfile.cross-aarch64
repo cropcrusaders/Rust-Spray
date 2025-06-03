@@ -4,7 +4,7 @@
 # ------------------------------------------------------------
 # Stage 1 - Build OpenCV for aarch64
 # ------------------------------------------------------------
-ARG OPENCV_VERSION=4.8.1
+ARG OPENCV_VERSION=4.11.0
 ARG CMAKE_BUILD_TYPE=Release
 FROM ubuntu:22.04 AS opencv-build
 
@@ -39,6 +39,7 @@ RUN git clone --depth 1 -b ${OPENCV_VERSION} https://github.com/opencv/opencv.gi
         -DCMAKE_INSTALL_PREFIX=/opt/opencv \
         -DBUILD_LIST=core,imgproc,highgui,imgcodecs \
         -DBUILD_SHARED_LIBS=ON \
+        -DWITH_IPP=OFF \
         -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} && \
     ninja -j$(nproc) && ninja install
 

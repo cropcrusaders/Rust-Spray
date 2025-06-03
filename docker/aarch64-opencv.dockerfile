@@ -35,12 +35,13 @@ ENV CXX=aarch64-linux-gnu-g++
 
 # Build OpenCV for the aarch64 sysroot
 WORKDIR /opt
-RUN git clone --depth 1 -b 4.8.1 https://github.com/opencv/opencv.git && \
+RUN git clone --depth 1 -b 4.11.0 https://github.com/opencv/opencv.git && \
     mkdir build && cd build && \
     cmake -G Ninja ../opencv \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
         -DBUILD_LIST=core,imgproc,highgui,imgcodecs,videoio,objdetect \
         -DBUILD_SHARED_LIBS=ON \
+        -DWITH_IPP=OFF \
         -DCMAKE_BUILD_TYPE=Release && \
     ninja -j$(nproc) && ninja install && \
     rm -rf /opt/opencv
