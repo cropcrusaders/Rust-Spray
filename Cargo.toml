@@ -14,7 +14,7 @@ categories  = ["hardware", "embedded", "science", "image-processing"]
 [dependencies]
 
 # OpenCV bindings (disable defaults, enable only needed modules)
-opencv = { version = "0.89", default-features = false, features = [
+opencv = { version = "0.94.4", default-features = false, features = [
   "clang-runtime",
   "highgui",
   "imgproc",
