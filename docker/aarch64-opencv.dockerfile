@@ -24,10 +24,10 @@ RUN rm -rf /etc/apt/sources.list.d/* && \
         build-essential \
         gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
         cmake ninja-build git pkg-config \
-        libgtk-3-dev libjpeg-dev libpng-dev libtiff-dev \
-        libavcodec-dev libavformat-dev libswscale-dev libv4l-dev \
-        libxvidcore-dev libx264-dev gfortran libtbb2 libtbb-dev \
-        libatlas-base-dev libdc1394-22-dev && \
+        libgtk-3-dev:arm64 libjpeg-dev:arm64 libpng-dev:arm64 libtiff-dev:arm64 \
+        libavcodec-dev:arm64 libavformat-dev:arm64 libswscale-dev:arm64 libv4l-dev:arm64 \
+        libxvidcore-dev:arm64 libx264-dev:arm64 gfortran:arm64 libtbb2:arm64 libtbb-dev:arm64 \
+        libatlas-base-dev:arm64 libdc1394-22-dev:arm64 && \
     rm -rf /var/lib/apt/lists/*
 
 ENV CC=aarch64-linux-gnu-gcc
