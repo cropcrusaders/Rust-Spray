@@ -18,6 +18,11 @@ RUN apt-get update && \
 
 # Reset package sources to avoid duplicate entries from the base image
 RUN rm -rf /etc/apt/sources.list.d/* && \
+    printf 'deb http://ports.ubuntu.com/ubuntu-ports focal main universe\n' \
+           'deb http://ports.ubuntu.com/ubuntu-ports focal-updates main universe\n' \
+           'deb http://ports.ubuntu.com/ubuntu-ports focal-security main universe\n' \
+           'deb http://ports.ubuntu.com/ubuntu-ports focal-backports main universe\n' \
+           > /etc/apt/sources.list && \
     dpkg --add-architecture arm64 && \
     dpkg --remove-architecture i386 || true && \
     apt-get -o Acquire::Retries=3 update && \
@@ -25,6 +30,7 @@ RUN rm -rf /etc/apt/sources.list.d/* && \
         build-essential \
         gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
         libc6-dev-arm64-cross linux-libc-dev-arm64-cross \
+        libopencv-dev:arm64 \
         libopencv-core-dev:arm64 \
         libopencv-imgproc-dev:arm64 \
         libopencv-highgui-dev:arm64 \
