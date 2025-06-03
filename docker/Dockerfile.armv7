@@ -58,6 +58,7 @@ RUN apt-get update && \
 COPY --from=pkgstage /usr/arm-linux-gnueabihf/ /usr/arm-linux-gnueabihf/
 COPY --from=pkgstage /usr/lib/arm-linux-gnueabihf/ /usr/lib/arm-linux-gnueabihf/
 COPY --from=pkgstage /usr/include/arm-linux-gnueabihf/ /usr/include/arm-linux-gnueabihf/
+COPY --from=pkgstage /usr/include/opencv4/ /usr/include/opencv4/
 
 # make pkg-config aware of the armhf .pc files
 ENV PKG_CONFIG_PATH=/usr/lib/arm-linux-gnueabihf/pkgconfig \
