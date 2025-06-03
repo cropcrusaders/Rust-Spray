@@ -17,6 +17,9 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 RUN rm -rf /etc/apt/sources.list.d/* && \
+    # cross-rs base images restrict apt to amd64 packages only. Remove the
+    # filter so we can fetch arm64 packages for the sysroot.
+    sed -i 's/\[arch=amd64\] //' /etc/apt/sources.list && \
     dpkg --add-architecture arm64 && \
     dpkg --remove-architecture i386 || true && \
     apt-get -o Acquire::Retries=3 update && \
