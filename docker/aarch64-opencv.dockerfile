@@ -25,10 +25,10 @@ RUN apt-get update && \
 RUN dpkg --add-architecture arm64 \
     && dpkg --remove-architecture i386 || true \
     && sed -Ei '/^deb \[/! s/^deb /deb [arch=amd64] /' /etc/apt/sources.list \
-    && printf 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy main restricted universe multiverse\n' > /etc/apt/sources.list.d/arm64.list \
-    && printf 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main restricted universe multiverse\n' >> /etc/apt/sources.list.d/arm64.list \
-    && printf 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-security main restricted universe multiverse\n' >> /etc/apt/sources.list.d/arm64.list \
-    && printf 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-backports main restricted universe multiverse\n' >> /etc/apt/sources.list.d/arm64.list \
+    && printf 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal main restricted universe multiverse\n' > /etc/apt/sources.list.d/arm64.list \
+    && printf 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal-updates main restricted universe multiverse\n' >> /etc/apt/sources.list.d/arm64.list \
+    && printf 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal-security main restricted universe multiverse\n' >> /etc/apt/sources.list.d/arm64.list \
+    && printf 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal-backports main restricted universe multiverse\n' >> /etc/apt/sources.list.d/arm64.list \
     && apt-get -o Acquire::Retries=3 update \
     && apt-get -o Acquire::Retries=3 install -y --no-install-recommends \
         build-essential \
