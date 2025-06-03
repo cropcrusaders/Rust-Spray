@@ -14,7 +14,7 @@ RUN apt-get update && \
 
 # Enable armhf architecture and Universe repo (where libav* lives)
 RUN dpkg --add-architecture armhf && \
-    sed -Ei 's/^deb /deb [arch=amd64] /' /etc/apt/sources.list && \
+    sed -Ei '/^deb \[/! s/^deb /deb [arch=amd64] /' /etc/apt/sources.list && \
     printf 'deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports jammy main universe restricted\n' > /etc/apt/sources.list.d/armhf.list && \
     printf 'deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports jammy-updates main universe restricted\n' >> /etc/apt/sources.list.d/armhf.list && \
     printf 'deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports jammy-security main universe restricted\n' >> /etc/apt/sources.list.d/armhf.list && \
