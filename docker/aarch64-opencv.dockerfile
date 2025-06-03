@@ -24,7 +24,7 @@ RUN apt-get update && \
 # arm64 packages instead.
 RUN dpkg --add-architecture arm64 \
     && dpkg --remove-architecture i386 || true \
-    && sed -Ei 's/^deb /deb [arch=amd64] /' /etc/apt/sources.list \
+    && sed -Ei '/^deb \[/! s/^deb /deb [arch=amd64] /' /etc/apt/sources.list \
     && printf 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy main restricted universe multiverse\n' > /etc/apt/sources.list.d/arm64.list \
     && printf 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main restricted universe multiverse\n' >> /etc/apt/sources.list.d/arm64.list \
     && printf 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-security main restricted universe multiverse\n' >> /etc/apt/sources.list.d/arm64.list \
