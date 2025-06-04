@@ -1,4 +1,4 @@
-FROM ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:edge AS builder
+FROM ubuntu:22.04 AS builder
 
 # Configure tzdata non-interactively to avoid prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
@@ -12,8 +12,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Install required dependencies for OpenCV
-RUN rm -rf /etc/apt/sources.list.d/* && \
-    dpkg --add-architecture armhf && \
+RUN dpkg --add-architecture armhf && \
     dpkg --remove-architecture i386 || true && \
     apt-get -o Acquire::Retries=3 update && \
     apt-get -o Acquire::Retries=3 install -y \
@@ -52,7 +51,7 @@ RUN mkdir -p /arm-linux-gnueabihf/lib && \
     cp /usr/local/lib/pkgconfig/opencv4.pc /arm-linux-gnueabihf/lib/pkgconfig/
 
 # Final image: will be used by cross
-FROM ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:edge
+FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Australia/Brisbane
 
@@ -62,8 +61,7 @@ RUN apt-get update && \
     echo ${TZ} > /etc/timezone && \
     dpkg-reconfigure -f noninteractive tzdata && \
     rm -rf /var/lib/apt/lists/*
-RUN rm -rf /etc/apt/sources.list.d/* && \
-    dpkg --add-architecture armhf && \
+RUN dpkg --add-architecture armhf && \
     dpkg --remove-architecture i386 || true && \
     apt-get -o Acquire::Retries=3 update && \
     apt-get -o Acquire::Retries=3 --fix-missing install -y pkg-config pkg-config-arm-linux-gnueabihf && \
