@@ -1,7 +1,7 @@
 //! Lightweight vegetation-index helpers (no self-borrow conflicts).
 
 use opencv::{
-    core::{self, Mat, Scalar},
+    core::{self, Mat, Scalar, Vector},
     imgproc,
     prelude::*,
     Result,
@@ -9,7 +9,7 @@ use opencv::{
 
 /* helpers ───────────────────────────────────────────────────────────── */
 fn split_bgr(src: &Mat) -> Result<(Mat, Mat, Mat)> {
-    let mut v = opencv::types::VectorOfMat::new();
+    let mut v: Vector<Mat> = Vector::new();
     core::split(src, &mut v)?;
     Ok((v.get(0)?, v.get(1)?, v.get(2)?)) // (B,G,R)
 }

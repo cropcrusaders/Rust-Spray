@@ -6,9 +6,8 @@
 //! • returns contours, boxes, centres, annotated frame
 
 use opencv::{
-    core::{self, Mat, Point, Scalar, Size},
+    core::{self, Mat, Point, Scalar, Size, Vector},
     imgproc,
-    types::VectorOfVectorOfPoint,
     Result,
 };
 use std::collections::HashMap;
@@ -105,7 +104,7 @@ impl GreenOnBrown {
         algorithm: &str,
         invert_hue: bool,
         label: &str,
-    ) -> Result<(VectorOfVectorOfPoint, Vec<[i32; 4]>, Vec<[i32; 2]>, Mat)> {
+    ) -> Result<(Vector<Vector<Point>>, Vec<[i32; 4]>, Vec<[i32; 2]>, Mat)> {
         /* 1 ─ build mask */
         let (mut mask, already_thresh) = if let Some(f) = self.simple.get(algorithm) {
             (f(frame)?, false)
@@ -162,7 +161,7 @@ impl GreenOnBrown {
         }
 
         /* 3 ─ contours, boxes, centres */
-        let mut contours = VectorOfVectorOfPoint::new();
+        let mut contours: Vector<Vector<Point>> = Vector::new();
         imgproc::find_contours(
             &mask,
             &mut contours,
