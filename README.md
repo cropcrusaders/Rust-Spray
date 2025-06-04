@@ -102,7 +102,7 @@ If you prefer to build inside a container you can create the images used by
 docker build -f Dockerfile.pi-opencv -t ghcr.io/<your-namespace>/aarch64-opencv:latest .
 
 # For 32-bit ARM targets
-docker build -f Dockerfile.pi-opencv-armv7 -t ghcr.io/<your-namespace>/armv7-opencv:latest .
+docker build -f Dockerfile.armv7-opencv -t ghcr.io/<your-namespace>/armv7-opencv:latest .
 ```
 
 These Dockerfiles install common build tools and now include
