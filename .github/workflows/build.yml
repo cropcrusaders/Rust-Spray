@@ -170,7 +170,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       IMAGE_TAG: "latest"
-      DOCKERFILE_PATH: "docker/Dockerfile.armv7"
+      DOCKERFILE_PATH: "Dockerfile.armv7-opencv"
       GHCR_USER: ${{ github.repository_owner }}
       GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
       TZ: Australia/Brisbane
