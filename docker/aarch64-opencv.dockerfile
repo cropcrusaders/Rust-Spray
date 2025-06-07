@@ -40,7 +40,7 @@ RUN rm -rf /etc/apt/sources.list.d/* && \
         libgtk-3-dev:arm64 libjpeg-dev:arm64 libpng-dev:arm64 libtiff-dev:arm64 \
         libavcodec-dev:arm64 libavformat-dev:arm64 libswscale-dev:arm64 libv4l-dev:arm64 \
         libxvidcore-dev:arm64 libx264-dev:arm64 libtbb2:arm64 libtbb-dev:arm64 \
-        libatlas-base-dev:arm64 libdc1394-22-dev:arm64 && \
+        libatlas-base-dev:arm64 libdc1394-dev:arm64 && \
     rm -rf /var/lib/apt/lists/*
 
 ENV CC=aarch64-linux-gnu-gcc
