@@ -58,9 +58,11 @@ RUN mkdir -p /arm-linux-gnueabihf/lib && \
     sed -i 's|^prefix=.*|prefix=/usr/arm-linux-gnueabihf|' /arm-linux-gnueabihf/lib/pkgconfig/opencv4.pc
 
 # ------------------------------------------------------------
-# Stage 2 - Build Rust project
+# Stage 2 - Build Rust project using cross
 # ------------------------------------------------------------
 FROM ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:edge AS rust-build
+
+RUN cargo install --git https://github.com/cross-rs/cross cross --locked
 
 COPY --from=opencv-build /opt/opencv /opt/opencv
 ENV PKG_CONFIG_PATH=/opt/opencv/lib/pkgconfig
@@ -68,7 +70,7 @@ ENV PKG_CONFIG_PATH=/opt/opencv/lib/pkgconfig
 WORKDIR /workspace
 COPY . /workspace
 
-RUN cargo build --release --target armv7-unknown-linux-gnueabihf
+RUN cross build --release --target armv7-unknown-linux-gnueabihf
 
 # ------------------------------------------------------------
 # Stage 3 - Runtime image

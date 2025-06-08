@@ -44,9 +44,11 @@ RUN git clone --depth 1 -b ${OPENCV_VERSION} https://github.com/opencv/opencv.gi
     ninja -j$(nproc) && ninja install
 
 # ------------------------------------------------------------
-# Stage 2 - Build Rust project
+# Stage 2 - Build Rust project using cross
 # ------------------------------------------------------------
 FROM ghcr.io/cross-rs/aarch64-unknown-linux-gnu:main AS rust-build
+
+RUN cargo install --git https://github.com/cross-rs/cross cross --locked
 
 COPY --from=opencv-build /opt/opencv /opt/opencv
 ENV PKG_CONFIG_PATH=/opt/opencv/lib/pkgconfig
@@ -54,7 +56,7 @@ ENV PKG_CONFIG_PATH=/opt/opencv/lib/pkgconfig
 WORKDIR /workspace
 COPY . /workspace
 
-RUN cargo build --release --target aarch64-unknown-linux-gnu
+RUN cross build --release --target aarch64-unknown-linux-gnu
 
 # ------------------------------------------------------------
 # Stage 3 - Runtime image
