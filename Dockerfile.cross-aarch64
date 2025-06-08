@@ -26,7 +26,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libgtk-3-dev libjpeg-dev libpng-dev libtiff-dev \
         libavcodec-dev libavformat-dev libswscale-dev libv4l-dev \
         libxvidcore-dev libx264-dev gfortran libtbb2 libtbb-dev \
-        libatlas-base-dev libdc1394-22-dev && \
+        libatlas-base-dev libdc1394-dev && \
     rm -rf /var/lib/apt/lists/*
 
 ENV CC=aarch64-linux-gnu-gcc
@@ -44,15 +44,19 @@ RUN git clone --depth 1 -b ${OPENCV_VERSION} https://github.com/opencv/opencv.gi
     ninja -j$(nproc) && ninja install
 
 # ------------------------------------------------------------
-# Stage 2 - Build Rust project using cross
+# Stage 2 - Build Rust project
 # ------------------------------------------------------------
 ARG RUST_TOOLCHAIN=stable
 FROM ghcr.io/cross-rs/aarch64-unknown-linux-gnu:main AS rust-build
+ARG RUST_TOOLCHAIN
 
-RUN rustup default ${RUST_TOOLCHAIN}
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        curl build-essential && \
+    rm -rf /var/lib/apt/lists/* && \
+    curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain ${RUST_TOOLCHAIN} && \
+    /root/.cargo/bin/cargo install --git https://github.com/cross-rs/cross cross --locked
 
-# Install cross inside the container
-RUN cargo install --git https://github.com/cross-rs/cross cross --locked
+ENV PATH=/root/.cargo/bin:$PATH
 
 COPY --from=opencv-build /opt/opencv /opt/opencv
 ENV PKG_CONFIG_PATH=/opt/opencv/lib/pkgconfig
