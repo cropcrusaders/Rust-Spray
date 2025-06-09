@@ -4,9 +4,11 @@
 # ------------------------------------------------------------
 # Stage 1 - Build OpenCV for aarch64
 # ------------------------------------------------------------
-ARG OPENCV_VERSION=4.10.0
+ARG OPENCV_VERSION=4.11.0
 ARG CMAKE_BUILD_TYPE=Release
 FROM ubuntu:22.04 AS opencv-build
+ARG OPENCV_VERSION
+ARG CMAKE_BUILD_TYPE
 
 # Configure tzdata non-interactively so builds do not block waiting for
 # timezone selection when any package pulls it in as a dependency.
@@ -48,8 +50,9 @@ RUN git clone --depth 1 -b ${OPENCV_VERSION} https://github.com/opencv/opencv.gi
 # ------------------------------------------------------------
 ARG RUST_TOOLCHAIN=stable
 FROM ghcr.io/cross-rs/aarch64-unknown-linux-gnu:main AS rust-build
+ARG RUST_TOOLCHAIN
 
-RUN rustup default ${RUST_TOOLCHAIN}
+RUN rustup default ${RUST_TOOLCHAIN:-stable}
 
 # Install cross inside the container
 RUN cargo install --git https://github.com/cross-rs/cross cross --locked
