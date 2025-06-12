@@ -18,6 +18,14 @@ pub struct Camera {
 }
 
 impl Camera {
+    /// Create a new camera instance.
+    ///
+    /// If `use_rpi` is `true` the Raspberry Pi camera backend is selected when the
+    /// `picam` feature is enabled. Otherwise OpenCV's `VideoCapture` is used.
+    ///
+    /// # Errors
+    /// Returns an error if the backend cannot be initialised or the feature is
+    /// not available.
     pub fn new(device: &str, width: u32, height: u32, use_rpi: bool) -> Result<Self, Box<dyn Error>> {
         if use_rpi {
             #[cfg(feature = "picam")]
@@ -45,6 +53,10 @@ impl Camera {
         Ok(Camera { backend: CameraBackend::OpenCv(capture) })
     }
 
+    /// Capture a frame from the configured backend.
+    ///
+    /// # Errors
+    /// Returns an error if a frame could not be captured from the camera.
     pub fn capture(&mut self) -> Result<Mat, Box<dyn Error>> {
         match &mut self.backend {
             CameraBackend::OpenCv(cap) => {

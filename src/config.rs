@@ -50,6 +50,10 @@ pub struct Config {
 }
 
 impl Config {
+    /// Load configuration from the given TOML file path.
+    ///
+    /// # Errors
+    /// Returns [`ConfigError`] if the file cannot be read or parsed.
     pub fn load(path: &str) -> Result<Self, ConfigError> {
         let contents = fs::read_to_string(path)?;
         Ok(toml::from_str(&contents)?)

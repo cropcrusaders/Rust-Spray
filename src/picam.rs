@@ -2,11 +2,14 @@ use opencv::{imgcodecs, core::{self, Vector}, prelude::*};
 use rscam::{Camera as PiCamera, Config as PiConfig};
 use std::error::Error;
 
+/// Thin wrapper around `rscam` for capturing MJPEG frames from the
+/// Raspberry Pi camera.
 pub struct Picam {
     camera: PiCamera,
 }
 
 impl Picam {
+    /// Create and configure a new Raspberry Pi camera instance.
     pub fn new(device: &str, width: u32, height: u32) -> Result<Self, Box<dyn Error>> {
         let mut cam = PiCamera::new(device)?;
         cam.start(&PiConfig {
@@ -18,6 +21,7 @@ impl Picam {
         Ok(Picam { camera: cam })
     }
 
+    /// Capture a single frame from the camera.
     pub fn capture(&mut self) -> Result<Mat, Box<dyn Error>> {
         let frame = self.camera.capture()?;
         let data = Vector::from_slice(&frame);
