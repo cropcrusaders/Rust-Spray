@@ -27,8 +27,8 @@ RUN dpkg --add-architecture armhf && \
 
 # Build and install OpenCV for ARMv7
 WORKDIR /opt
-RUN git clone --depth 1 --branch 4.10.0 https://github.com/opencv/opencv.git && \
-    git clone --depth 1 --branch 4.10.0 https://github.com/opencv/opencv_contrib.git && \
+RUN git clone --depth 1 --branch 4.11.0 https://github.com/opencv/opencv.git && \
+    git clone --depth 1 --branch 4.11.0 https://github.com/opencv/opencv_contrib.git && \
     mkdir -p build && cd build && \
     cmake -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
