@@ -34,13 +34,14 @@ RUN rm -rf /etc/apt/sources.list.d/* && \
     add-apt-repository universe && \
     apt-get -o Acquire::Retries=3 update && \
     apt-get -o Acquire::Retries=3 install -y --no-install-recommends \
+        ca-certificates \
         build-essential \
         gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
         cmake ninja-build git pkg-config clang \
         libgtk-3-dev:arm64 libjpeg-dev:arm64 libpng-dev:arm64 libtiff-dev:arm64 \
         libavcodec-dev:arm64 libavformat-dev:arm64 libswscale-dev:arm64 libv4l-dev:arm64 \
         libxvidcore-dev:arm64 libx264-dev:arm64 libtbb2:arm64 libtbb-dev:arm64 \
-        libatlas-base-dev:arm64 libdc1394-22-dev:arm64 && \
+        libatlas-base-dev:arm64 libdc1394-dev:arm64 && \
     rm -rf /var/lib/apt/lists/*
 
 ENV CC=aarch64-linux-gnu-gcc
@@ -48,13 +49,15 @@ ENV CXX=aarch64-linux-gnu-g++
 
 # Build OpenCV for the aarch64 sysroot
 WORKDIR /opt
-RUN git clone --depth 1 -b 4.10.0 https://github.com/opencv/opencv.git && \
+RUN git clone --depth 1 -b 4.11.0 https://github.com/opencv/opencv.git && \
     mkdir build && cd build && \
     cmake -G Ninja ../opencv \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
         -DBUILD_LIST=core,imgproc,highgui,imgcodecs,videoio,objdetect \
         -DBUILD_SHARED_LIBS=ON \
         -DWITH_IPP=OFF \
+        -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
+        -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
         -DCMAKE_BUILD_TYPE=Release && \
     ninja -j$(nproc) && ninja install && \
     rm -rf /opt/opencv
