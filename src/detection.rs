@@ -48,6 +48,7 @@ fn hsv_wrapper(
 
 /* ───────────────────────── struct ───────────────────────── */
 
+/// Detection utilities for segmenting green weeds against brown soil.
 pub struct GreenOnBrown {
     kernel: Mat,
     simple: HashMap<String, AlgFn>,
@@ -55,6 +56,10 @@ pub struct GreenOnBrown {
 }
 
 impl GreenOnBrown {
+    /// Create a new detector using `default_alg` as the initial algorithm.
+    ///
+    /// # Errors
+    /// Returns an `opencv::Error` if the algorithm name is unknown.
     pub fn new(default_alg: &str) -> Result<Self> {
         let kernel = imgproc::get_structuring_element(
             imgproc::MORPH_ELLIPSE,
@@ -88,6 +93,13 @@ impl GreenOnBrown {
     }
 
     #[allow(clippy::too_many_arguments)]
+    /// Run the detection pipeline on a frame.
+    ///
+    /// Returns the raw contours, bounding boxes, centre points and an
+    /// annotated frame.
+    ///
+    /// # Errors
+    /// Propagates errors from the underlying OpenCV calls.
     pub fn inference(
         &self,
         frame: &Mat,

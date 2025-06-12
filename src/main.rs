@@ -63,6 +63,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 // ─── processing loop ────────────────────────────────────────────────────────
+/// Execute the camera/detection/spray loop until `q` is pressed if the display
+/// window is shown.
 fn run(
     camera: &mut Camera,
     gob: &GreenOnBrown,
