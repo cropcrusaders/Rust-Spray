@@ -4,7 +4,7 @@
 # ------------------------------------------------------------
 # Stage 1 - Build OpenCV for aarch64
 # ------------------------------------------------------------
-ARG OPENCV_VERSION=4.10.0
+ARG OPENCV_VERSION=4.11.0
 ARG CMAKE_BUILD_TYPE=Release
 FROM ubuntu:22.04 AS opencv-build
 
