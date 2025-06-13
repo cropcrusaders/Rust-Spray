@@ -69,6 +69,9 @@ ARG RUST_TOOLCHAIN=stable
 FROM ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:edge AS rust-build
 ARG RUST_TOOLCHAIN
 
+# Ensure rustup is available in PATH
+ENV PATH="/root/.cargo/bin:${PATH}"
+
 RUN rustup default ${RUST_TOOLCHAIN}
 RUN cargo install --git https://github.com/cross-rs/cross cross --locked
 

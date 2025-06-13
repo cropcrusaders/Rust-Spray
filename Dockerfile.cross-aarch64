@@ -49,6 +49,9 @@ RUN git clone --depth 1 -b ${OPENCV_VERSION} https://github.com/opencv/opencv.gi
 ARG RUST_TOOLCHAIN=stable
 FROM ghcr.io/cross-rs/aarch64-unknown-linux-gnu:main AS rust-build
 
+# Ensure rustup is available in PATH
+ENV PATH="/root/.cargo/bin:${PATH}"
+
 RUN rustup default ${RUST_TOOLCHAIN}
 
 # Install cross inside the container
