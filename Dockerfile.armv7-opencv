@@ -65,9 +65,8 @@ RUN mkdir -p /arm-linux-gnueabihf/lib && \
 # ------------------------------------------------------------
 # Stage 2 - Build Rust project using cross
 # ------------------------------------------------------------
-ARG RUST_TOOLCHAIN=stable
 FROM ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:edge AS rust-build
-ARG RUST_TOOLCHAIN
+ARG RUST_TOOLCHAIN=stable
 
 # Install rustup and set the default toolchain
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
