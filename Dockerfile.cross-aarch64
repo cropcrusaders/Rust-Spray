@@ -22,7 +22,6 @@ RUN apt-get update && \
 # Install cross compile toolchain and build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
         gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
-        libc6-dev-arm64-cross linux-libc-dev-arm64-cross \
         cmake ninja-build git pkg-config \
         libgtk-3-dev libjpeg-dev libpng-dev libtiff-dev \
         libavcodec-dev libavformat-dev libswscale-dev libv4l-dev \
