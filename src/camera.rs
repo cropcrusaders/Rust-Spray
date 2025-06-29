@@ -13,17 +13,31 @@ pub enum CameraBackend {
     Pi(picam::Picam),
 }
 
+/// Represents a camera device used for capturing frames.
 pub struct Camera {
     backend: CameraBackend,
 }
 
 impl Camera {
-    pub fn new(device: &str, width: u32, height: u32, use_rpi: bool) -> Result<Self, Box<dyn Error>> {
+    /// Create a new [`Camera`].
+    ///
+    /// * `device` - Path or index of the video device.
+    /// * `width` - Desired frame width.
+    /// * `height` - Desired frame height.
+    /// * `use_rpi` - Use the Raspberry Pi camera backend when available.
+    pub fn new(
+        device: &str,
+        width: u32,
+        height: u32,
+        use_rpi: bool,
+    ) -> Result<Self, Box<dyn Error>> {
         if use_rpi {
             #[cfg(feature = "picam")]
             {
                 let cam = picam::Picam::new(device, width, height)?;
-                return Ok(Camera { backend: CameraBackend::Pi(cam) });
+                return Ok(Camera {
+                    backend: CameraBackend::Pi(cam),
+                });
             }
             #[cfg(not(feature = "picam"))]
             {
@@ -42,9 +56,12 @@ impl Camera {
             return Err("Failed to open camera".into());
         }
 
-        Ok(Camera { backend: CameraBackend::OpenCv(capture) })
+        Ok(Camera {
+            backend: CameraBackend::OpenCv(capture),
+        })
     }
 
+    /// Capture a single frame from the camera.
     pub fn capture(&mut self) -> Result<Mat, Box<dyn Error>> {
         match &mut self.backend {
             CameraBackend::OpenCv(cap) => {

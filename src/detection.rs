@@ -7,8 +7,7 @@
 
 use opencv::{
     core::{self, Mat, Point, Scalar, Size, Vector},
-    imgproc,
-    Result,
+    imgproc, Result,
 };
 use std::collections::HashMap;
 
