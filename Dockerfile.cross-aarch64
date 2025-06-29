@@ -48,7 +48,7 @@ RUN git clone --depth 1 -b ${OPENCV_VERSION} https://github.com/opencv/opencv.gi
 # ------------------------------------------------------------
 ARG RUST_TOOLCHAIN=stable
 FROM ghcr.io/cross-rs/aarch64-unknown-linux-gnu:main AS rust-build
-ARG RUST_TOOLCHAIN
+ARG RUST_TOOLCHAIN=stable
 ENV RUST_TOOLCHAIN=${RUST_TOOLCHAIN}
 
 # Install rustup and set the desired toolchain

@@ -67,7 +67,7 @@ RUN mkdir -p /arm-linux-gnueabihf/lib && \
 # ------------------------------------------------------------
 ARG RUST_TOOLCHAIN=stable
 FROM ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:edge AS rust-build
-ARG RUST_TOOLCHAIN
+ARG RUST_TOOLCHAIN=stable
 ENV RUST_TOOLCHAIN=${RUST_TOOLCHAIN}
 
 # Install rustup and set the desired toolchain.
