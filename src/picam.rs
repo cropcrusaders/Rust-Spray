@@ -1,12 +1,18 @@
-use opencv::{imgcodecs, core::{self, Vector}, prelude::*};
+use opencv::{
+    core::{self, Vector},
+    imgcodecs,
+    prelude::*,
+};
 use rscam::{Camera as PiCamera, Config as PiConfig};
 use std::error::Error;
 
+/// Raspberry Pi camera backend using the `rscam` crate.
 pub struct Picam {
     camera: PiCamera,
 }
 
 impl Picam {
+    /// Create a new [`Picam`].
     pub fn new(device: &str, width: u32, height: u32) -> Result<Self, Box<dyn Error>> {
         let mut cam = PiCamera::new(device)?;
         cam.start(&PiConfig {
@@ -18,6 +24,7 @@ impl Picam {
         Ok(Picam { camera: cam })
     }
 
+    /// Capture a frame from the Raspberry Pi camera.
     pub fn capture(&mut self) -> Result<Mat, Box<dyn Error>> {
         let frame = self.camera.capture()?;
         let data = Vector::from_slice(&frame);
