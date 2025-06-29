@@ -69,7 +69,14 @@ ARG RUST_TOOLCHAIN=stable
 FROM ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:edge AS rust-build
 ARG RUST_TOOLCHAIN
 
-RUN rustup default ${RUST_TOOLCHAIN}
+# Install rustup and set the desired toolchain.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl ca-certificates && \
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
+        sh -s -- -y --profile minimal --default-toolchain ${RUST_TOOLCHAIN} && \
+    rm -rf /var/lib/apt/lists/*
+ENV PATH="/root/.cargo/bin:${PATH}"
+
 RUN cargo install --git https://github.com/cross-rs/cross cross --locked
 
 COPY --from=opencv-build /opt/opencv /opt/opencv
