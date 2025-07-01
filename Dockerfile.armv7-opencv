@@ -65,12 +65,11 @@ RUN mkdir -p /arm-linux-gnueabihf/lib && \
 # ------------------------------------------------------------
 # Stage 2 - Build Rust project using cross
 # ------------------------------------------------------------
-ARG RUST_TOOLCHAIN=stable
 FROM ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:edge AS rust-build
-ARG RUST_TOOLCHAIN
 
-RUN rustup default ${RUST_TOOLCHAIN}
-RUN cargo install --git https://github.com/cross-rs/cross cross --locked
+# Cross-rs images come with pre-configured Rust toolchain for the target
+# No need to install rustup or change toolchain
+RUN cargo --version && rustc --version
 
 COPY --from=opencv-build /opt/opencv /opt/opencv
 ENV PKG_CONFIG_PATH=/opt/opencv/lib/pkgconfig

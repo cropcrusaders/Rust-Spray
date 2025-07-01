@@ -43,7 +43,6 @@ activation_duration_ms = 200
     let validation_result = config.validate();
     assert!(validation_result.is_err(), "Expected validation to fail for zero resolution");
 }
-}
 
 #[test]
 fn test_unsupported_algorithm() {

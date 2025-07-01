@@ -1,4 +1,8 @@
-use opencv::{imgcodecs, core::{self, Vector}, prelude::*};
+use opencv::{
+    core::{self, Vector},
+    imgcodecs,
+    prelude::*,
+};
 use rscam::{Camera as PiCamera, Config as PiConfig};
 use std::error::Error;
 

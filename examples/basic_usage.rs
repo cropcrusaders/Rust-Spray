@@ -1,5 +1,5 @@
 //! Basic usage example for Rust-Spray
-//! 
+//!
 //! This example demonstrates how to use the Rust-Spray library components
 //! programmatically instead of through the main application.
 
@@ -62,7 +62,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         if !result.centers.is_empty() {
             println!("Found {} weeds", result.centers.len());
-            
+
             // Spray for the configured duration
             let duration = Duration::from_millis(config.spray.activation_duration_ms as u64);
             spray_controller.pulse_all(duration);

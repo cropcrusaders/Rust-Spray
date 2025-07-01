@@ -54,10 +54,10 @@ pub struct Config {
 
 impl Config {
     /// Load configuration from a TOML file
-    /// 
+    ///
     /// # Arguments
     /// * `path` - Path to the configuration file
-    /// 
+    ///
     /// # Returns
     /// * `Result<Self, ConfigError>` - Loaded configuration or error
     pub fn load(path: &str) -> Result<Self, ConfigError> {
@@ -91,14 +91,12 @@ impl Config {
         }
 
         // Check for supported algorithms
-        let supported_algorithms = [
-            "exg", "exgr", "maxg", "nexg", "gndvi", "hsv", "exhsv"
-        ];
+        let supported_algorithms = ["exg", "exgr", "maxg", "nexg", "gndvi", "hsv", "exhsv"];
         if !supported_algorithms.contains(&self.detection.algorithm.as_str()) {
-            return Err(ConfigError::Validation(
-                format!("Unsupported algorithm '{}'. Supported: {:?}", 
-                       self.detection.algorithm, supported_algorithms)
-            ));
+            return Err(ConfigError::Validation(format!(
+                "Unsupported algorithm '{}'. Supported: {:?}",
+                self.detection.algorithm, supported_algorithms
+            )));
         }
 
         Ok(())

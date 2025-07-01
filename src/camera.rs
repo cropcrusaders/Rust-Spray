@@ -1,5 +1,5 @@
 //! Camera abstraction for different camera backends
-//! 
+//!
 //! This module provides a unified interface for both OpenCV-based cameras
 //! (USB cameras, video files) and Raspberry Pi camera modules.
 
@@ -38,13 +38,13 @@ pub struct Camera {
 
 impl Camera {
     /// Create a new camera instance
-    /// 
+    ///
     /// # Arguments
     /// * `device` - Device path or index (e.g., "/dev/video0" or "0")
     /// * `width` - Desired frame width
     /// * `height` - Desired frame height
     /// * `use_rpi` - Whether to use Raspberry Pi camera backend
-    /// 
+    ///
     /// # Returns
     /// * `Result<Self, CameraError>` - New camera instance or error
     pub fn new(device: &str, width: u32, height: u32, use_rpi: bool) -> Result<Self, CameraError> {
@@ -53,12 +53,14 @@ impl Camera {
             {
                 let cam = picam::Picam::new(device, width, height)
                     .map_err(|e| CameraError::Open(format!("Pi camera: {}", e)))?;
-                return Ok(Camera { backend: CameraBackend::Pi(cam) });
+                return Ok(Camera {
+                    backend: CameraBackend::Pi(cam),
+                });
             }
             #[cfg(not(feature = "picam"))]
             {
                 return Err(CameraError::FeatureNotAvailable(
-                    "picam feature not enabled".to_string()
+                    "picam feature not enabled".to_string(),
                 ));
             }
         }
@@ -71,7 +73,10 @@ impl Camera {
         };
 
         if !capture.is_opened()? {
-            return Err(CameraError::Open(format!("Failed to open camera: {}", device)));
+            return Err(CameraError::Open(format!(
+                "Failed to open camera: {}",
+                device
+            )));
         }
 
         // Set resolution if it's a live camera (not a file)
@@ -80,8 +85,8 @@ impl Camera {
             let _ = capture.set(videoio::CAP_PROP_FRAME_HEIGHT, height as f64);
         }
 
-        Ok(Camera { 
-            backend: CameraBackend::OpenCv(capture) 
+        Ok(Camera {
+            backend: CameraBackend::OpenCv(capture),
         })
     }
 

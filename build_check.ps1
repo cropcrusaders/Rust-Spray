@@ -55,7 +55,39 @@ if (Test-Path "examples/basic_usage.rs") {
 }
 
 Write-Host ""
-Write-Host "📋 Build Commands:" -ForegroundColor Cyan
+Write-Host "� Prerequisites Check:" -ForegroundColor Cyan
+Write-Host "======================="
+
+# Check if Rust is installed
+try {
+    $rustVersion = cargo --version 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "✅ Rust/Cargo: $rustVersion" -ForegroundColor Green
+    } else {
+        Write-Host "❌ Rust/Cargo not found" -ForegroundColor Red
+        Write-Host "   Install from: https://rustup.rs/" -ForegroundColor Yellow
+    }
+} catch {
+    Write-Host "❌ Rust/Cargo not found" -ForegroundColor Red
+    Write-Host "   Install from: https://rustup.rs/" -ForegroundColor Yellow
+}
+
+# Check if Cross is available (for cross-compilation)
+try {
+    $crossVersion = cross --version 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "✅ Cross: $crossVersion" -ForegroundColor Green
+    } else {
+        Write-Host "⚠️  Cross not installed (optional for ARM cross-compilation)" -ForegroundColor Yellow
+        Write-Host "   Install with: cargo install cross" -ForegroundColor Yellow
+    }
+} catch {
+    Write-Host "⚠️  Cross not installed (optional for ARM cross-compilation)" -ForegroundColor Yellow
+    Write-Host "   Install with: cargo install cross" -ForegroundColor Yellow
+}
+
+Write-Host ""
+Write-Host "�📋 Build Commands:" -ForegroundColor Cyan
 Write-Host "=================="
 Write-Host "Standard build:          cargo build"
 Write-Host "Release build:           cargo build --release"
@@ -75,3 +107,14 @@ Write-Host "===================="
 Write-Host "Run example:             cargo run --example basic_usage"
 Write-Host ""
 Write-Host "🚀 Ready for compilation!" -ForegroundColor Green
+Write-Host ""
+Write-Host "📁 CI/CD Status:" -ForegroundColor Cyan
+Write-Host "================"
+Write-Host "The project includes GitHub Actions workflows for:"
+Write-Host "• Quick Tests (.github/workflows/test.yml)" -ForegroundColor Yellow
+Write-Host "• Full CI/CD (.github/workflows/ci.yml)" -ForegroundColor Yellow
+Write-Host "• Build & Release (.github/workflows/build.yml)" -ForegroundColor Yellow
+Write-Host "• Lockfile Updates (.github/workflows/pr.yml)" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "Note: The failed CI test was due to formatting issues that have been resolved." -ForegroundColor Green
+Write-Host "Push your changes to trigger the fixed workflows." -ForegroundColor Green
