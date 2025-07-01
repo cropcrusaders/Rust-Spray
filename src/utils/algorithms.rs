@@ -1,4 +1,8 @@
-//! Lightweight vegetation-index helpers (no self-borrow conflicts).
+//! Lightweight vegetation-index helpers for weed detection
+//!
+//! This module provides various computer vision algorithms for detecting
+//! vegetation in agricultural images, including ExG, HSV thresholding,
+//! and hybrid approaches.
 
 use opencv::{
     core::{self, Mat, Scalar, Vector},
@@ -7,19 +11,46 @@ use opencv::{
     Result,
 };
 
-/* helpers ───────────────────────────────────────────────────────────── */
+// ─── Helper functions ───────────────────────────────────────────────────────
+
+/// Split a BGR image into its component channels
+/// 
+/// # Arguments
+/// * `src` - Input BGR image
+/// 
+/// # Returns
+/// * `Result<(Mat, Mat, Mat)>` - Blue, Green, Red channels or error
 fn split_bgr(src: &Mat) -> Result<(Mat, Mat, Mat)> {
     let mut v: Vector<Mat> = Vector::new();
     core::split(src, &mut v)?;
     Ok((v.get(0)?, v.get(1)?, v.get(2)?)) // (B,G,R)
 }
+
+/// Convert a floating-point image to 8-bit unsigned
+/// 
+/// # Arguments
+/// * `src` - Input floating-point image
+/// 
+/// # Returns
+/// * `Result<Mat>` - 8-bit image or error
 fn to_u8(src: &Mat) -> Result<Mat> {
     let mut out = Mat::default();
     src.convert_to(&mut out, core::CV_8U, 1.0, 0.0)?;
     Ok(out)
 }
 
-/* ExG ──────────────────────────────────────────────────────────────── */
+// ─── Vegetation Index Algorithms ───────────────────────────────────────────
+
+/// Excess Green (ExG) vegetation index
+/// 
+/// Calculates ExG = 2*G - R - B, useful for detecting green vegetation
+/// against brown soil backgrounds.
+/// 
+/// # Arguments
+/// * `src` - Input BGR image
+/// 
+/// # Returns
+/// * `Result<Mat>` - ExG index image or error
 pub fn exg(src: &Mat) -> Result<Mat> {
     let (b, g, r) = split_bgr(src)?;
     let mut mix1 = Mat::default();
@@ -29,7 +60,16 @@ pub fn exg(src: &Mat) -> Result<Mat> {
     to_u8(&mix2)
 }
 
-/* ExGR ─────────────────────────────────────────────────────────────── */
+/// Excess Green minus Excess Red (ExGR) vegetation index
+/// 
+/// Combines ExG with ExR to improve vegetation detection by reducing
+/// reddish soil interference.
+/// 
+/// # Arguments
+/// * `src` - Input BGR image
+/// 
+/// # Returns
+/// * `Result<Mat>` - ExGR index image or error
 pub fn exgr(src: &Mat) -> Result<Mat> {
     let exg_img = exg(src)?;
     let (_, _, r) = split_bgr(src)?;
@@ -38,7 +78,16 @@ pub fn exgr(src: &Mat) -> Result<Mat> {
     Ok(diff)
 }
 
-/* MaxG ─────────────────────────────────────────────────────────────── */
+/// Maximum Green (MaxG) vegetation index
+/// 
+/// Takes the maximum of the green channel against red and blue channels.
+/// Simple but effective for certain lighting conditions.
+/// 
+/// # Arguments
+/// * `src` - Input BGR image
+/// 
+/// # Returns
+/// * `Result<Mat>` - MaxG index image or error
 pub fn maxg(src: &Mat) -> Result<Mat> {
     let (b, g, r) = split_bgr(src)?;
     let mut tmp = Mat::default();

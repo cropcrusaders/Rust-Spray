@@ -1,7 +1,13 @@
+//! Rust-Spray: Camera-based precision spraying system
+//! 
+//! This application captures video frames, detects weeds using computer vision,
+//! and controls sprayer hardware via GPIO pins.
+
 use clap::Parser;
-use log::info;
+use log::{error, info, warn};
 use opencv::highgui;
-use std::error::Error;
+use std::process;
+use thiserror::Error;
 
 // ─── Project modules ────────────────────────────────────────────────────────
 mod camera;
@@ -10,13 +16,37 @@ mod detection;
 mod spray;
 mod utils;
 
-use camera::Camera;
-use config::Config;
-use detection::GreenOnBrown;
-use spray::SprayController;
+use camera::{Camera, CameraError};
+use config::{Config, ConfigError};
+use detection::{DetectionParams, GreenOnBrown};
+use spray::{SprayController, SprayError};
+
+// ─── Error handling ─────────────────────────────────────────────────────────
+
+#[derive(Error, Debug)]
+pub enum AppError {
+    #[error("Configuration error: {0}")]
+    Config(#[from] ConfigError),
+    #[error("Camera error: {0}")]
+    Camera(#[from] CameraError),
+    #[error("Detection error: {0}")]
+    Detection(#[from] opencv::Error),
+    #[error("Spray controller error: {0}")]
+    Spray(#[from] SprayError),
+    #[error("Application error: {0}")]
+    General(String),
+}
+
+type Result<T> = std::result::Result<T, AppError>;
 
 // ─── CLI args ───────────────────────────────────────────────────────────────
+
 #[derive(Parser)]
+#[command(
+    name = "rustspray",
+    about = "A Rust-based camera-and-sprayer system for precision weed control",
+    version
+)]
 struct Cli {
     /// Path to the configuration file
     #[arg(long, default_value = "config/config.toml")]
@@ -25,92 +55,161 @@ struct Cli {
     /// Display the annotated video stream
     #[arg(long)]
     show_display: bool,
+
+    /// Enable verbose logging
+    #[arg(short, long)]
+    verbose: bool,
 }
 
-// ─── main ───────────────────────────────────────────────────────────────────
-fn main() -> Result<(), Box<dyn Error>> {
-    env_logger::init();
+// ─── Main function ──────────────────────────────────────────────────────────
+
+fn main() {
+    // Initialize the application and handle any errors gracefully
+    if let Err(e) = run() {
+        error!("Application error: {}", e);
+        
+        // Print the error chain
+        let mut source = e.source();
+        while let Some(err) = source {
+            error!("  Caused by: {}", err);
+            source = err.source();
+        }
+        
+        process::exit(1);
+    }
+}
+
+fn run() -> Result<()> {
     let cli = Cli::parse();
 
-    // 1. Load config
-    let config = Config::load(&cli.config)?;
-    info!("Config loaded from {}", cli.config);
+    // Initialize logging
+    let log_level = if cli.verbose { "debug" } else { "info" };
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(log_level))
+        .init();
 
-    // 2. Camera
+    info!("Starting Rust-Spray v{}", env!("CARGO_PKG_VERSION"));
+
+    // 1. Load configuration
+    let config = Config::load(&cli.config)?;
+    info!("Configuration loaded from {}", cli.config);
+
+    // 2. Initialize camera
     let mut camera = Camera::new(
         &config.camera.device,
         config.camera.resolution_width,
         config.camera.resolution_height,
         config.camera.use_rpi_cam,
     )?;
-    info!("Camera initialised");
+    
+    if let Some((w, h)) = camera.get_resolution() {
+        info!("Camera initialized: {}x{}", w, h);
+    } else {
+        info!("Camera initialized: {}", config.camera.device);
+    }
 
-    // 3. Detection
-    let gob = GreenOnBrown::new(&config.detection.algorithm)?;
-    info!("Detector '{}'", config.detection.algorithm);
+    // 3. Initialize detection
+    let detector = GreenOnBrown::new(&config.detection.algorithm)?;
+    info!("Detection engine ready: {}", config.detection.algorithm);
 
-    // 4. Sprayer
-    let mut spray = SprayController::new(config.spray.pins)?;
-    info!("Spray controller ready");
+    // 4. Initialize spray controller
+    let mut spray_controller = SprayController::new(config.spray.pins)?;
+    info!("Spray controller ready: {} sprayers", spray_controller.sprayer_count());
 
     // 5. Optional display window
     if cli.show_display {
-        highgui::named_window("Detection", highgui::WINDOW_AUTOSIZE)?;
+        match highgui::named_window("Rust-Spray Detection", highgui::WINDOW_AUTOSIZE) {
+            Ok(_) => info!("Display window created"),
+            Err(e) => warn!("Failed to create display window: {}", e),
+        }
     }
 
-    // 6. Main loop
-    run(&mut camera, &gob, &mut spray, &config, cli.show_display)
+    // 6. Main processing loop
+    process_frames(&mut camera, &detector, &mut spray_controller, &config, cli.show_display)
 }
 
-// ─── processing loop ────────────────────────────────────────────────────────
-fn run(
+// ─── Processing loop ────────────────────────────────────────────────────────
+
+fn process_frames(
     camera: &mut Camera,
-    gob: &GreenOnBrown,
-    spray: &mut SprayController,
-    cfg: &Config,
+    detector: &GreenOnBrown,
+    spray_controller: &mut SprayController,
+    config: &Config,
     show_display: bool,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<()> {
+    info!("Starting main processing loop");
+    
+    // Create detection parameters from config
+    let detection_params = DetectionParams {
+        exg_min: config.detection.exg_min,
+        exg_max: config.detection.exg_max,
+        hue_min: config.detection.hue_min,
+        hue_max: config.detection.hue_max,
+        brightness_min: config.detection.brightness_min,
+        brightness_max: config.detection.brightness_max,
+        saturation_min: config.detection.saturation_min,
+        saturation_max: config.detection.saturation_max,
+        min_area: config.detection.min_area,
+        invert_hue: config.detection.invert_hue,
+        algorithm: config.detection.algorithm.clone(),
+    };
+
+    let spray_duration = std::time::Duration::from_millis(
+        config.spray.activation_duration_ms as u64
+    );
+
+    let mut frame_count = 0;
+    let start_time = std::time::Instant::now();
+
     loop {
-        // ── capture
-        let frame = camera.capture()?;
-        info!("Frame captured");
+        // Capture frame
+        let frame = match camera.capture() {
+            Ok(f) => f,
+            Err(e) => {
+                error!("Failed to capture frame: {}", e);
+                continue;
+            }
+        };
 
-        // ── detect
-        let (_contours, _boxes, centres, annotated) = gob.inference(
-            &frame,
-            cfg.detection.exg_min,
-            cfg.detection.exg_max,
-            cfg.detection.hue_min,
-            cfg.detection.hue_max,
-            cfg.detection.brightness_min,
-            cfg.detection.brightness_max,
-            cfg.detection.saturation_min,
-            cfg.detection.saturation_max,
-            cfg.detection.min_area,
-            show_display,
-            &cfg.detection.algorithm,
-            cfg.detection.invert_hue,
-            "WEED",
-        )?;
-        info!("Found {} weeds", centres.len());
+        frame_count += 1;
 
-        // ── spray if needed
-        if !centres.is_empty() {
-            spray.activate_all();
-            std::thread::sleep(std::time::Duration::from_millis(
-                cfg.spray.activation_duration_ms as u64,
-            ));
-            spray.deactivate_all();
-            info!("Sprayers pulsed");
+        // Run detection
+        let detection_result = detector.detect(&frame, &detection_params, show_display, "WEED")?;
+        let weed_count = detection_result.centers.len();
+
+        if weed_count > 0 {
+            info!("Detected {} weeds in frame {}", weed_count, frame_count);
+            
+            // Activate sprayers
+            spray_controller.pulse_all(spray_duration);
+            info!("Sprayed for {}ms", config.spray.activation_duration_ms);
         }
 
-        // ── optional display & exit key
+        // Optional display
         if show_display {
-            highgui::imshow("Detection", &annotated)?;
-            if highgui::wait_key(1)? == 'q' as i32 {
-                break;
+            match highgui::imshow("Rust-Spray Detection", &detection_result.annotated_frame) {
+                Ok(_) => {},
+                Err(e) => warn!("Display error: {}", e),
+            }
+
+            // Check for exit key
+            match highgui::wait_key(1) {
+                Ok(key) if key == 'q' as i32 || key == 27 => { // 'q' or ESC
+                    info!("Exit key pressed");
+                    break;
+                },
+                Ok(_) => {},
+                Err(e) => warn!("Key input error: {}", e),
             }
         }
+
+        // Print periodic statistics
+        if frame_count % 100 == 0 {
+            let elapsed = start_time.elapsed();
+            let fps = frame_count as f64 / elapsed.as_secs_f64();
+            info!("Processed {} frames at {:.1} FPS", frame_count, fps);
+        }
     }
+
+    info!("Processing completed. Total frames: {}", frame_count);
     Ok(())
 }

@@ -1,9 +1,7 @@
 //! Green-on-Brown detection front-end.
 //!
-//! • chooses a vegetation-index algorithm  
-//! • builds / thresholds a mask  
-//! • cleans it with morphology  
-//! • returns contours, boxes, centres, annotated frame
+//! This module provides weed detection functionality using various computer vision
+//! algorithms including ExG, HSV thresholding, and hybrid approaches.
 
 use opencv::{
     core::{self, Mat, Point, Scalar, Size, Vector},
@@ -14,23 +12,44 @@ use std::collections::HashMap;
 
 use crate::utils::algorithms::{exg, exgr, exhsv, gndvi, hsv, maxg, nexg};
 
+/// Detection parameters structure to reduce function parameter count
+#[derive(Debug, Clone)]
+pub struct DetectionParams {
+    pub exg_min: i32,
+    pub exg_max: i32,
+    pub hue_min: i32,
+    pub hue_max: i32,
+    pub brightness_min: i32,
+    pub brightness_max: i32,
+    pub saturation_min: i32,
+    pub saturation_max: i32,
+    pub min_area: f64,
+    pub invert_hue: bool,
+    pub algorithm: String,
+}
+
+/// Detection result containing all relevant information
+#[derive(Debug)]
+pub struct DetectionResult {
+    pub contours: Vector<Vector<Point>>,
+    pub bounding_boxes: Vec<[i32; 4]>,
+    pub centers: Vec<[i32; 2]>,
+    pub annotated_frame: Mat,
+}
+
 /* ───────────── function-pointer aliases ───────────── */
 
 type AlgFn = fn(&Mat) -> Result<Mat>;
 type AlgFnWithParams = fn(
     &Mat,
-    i32,
-    i32, // exg min / max (ignored by plain HSV)
-    i32,
-    i32, // hue min / max
-    i32,
-    i32, // sat min / max
-    i32,
-    i32,  // val min / max  ← rustfmt prefers two spaces here
+    i32, i32, // exg min / max (ignored by plain HSV)
+    i32, i32, // hue min / max
+    i32, i32, // sat min / max
+    i32, i32, // val min / max
     bool, // invert hue?
 ) -> Result<(Mat, bool)>;
 
-/* wrapper so plain HSV fits 8-param signature */
+/// Wrapper so plain HSV fits the parameterized function signature
 fn hsv_wrapper(
     src: &Mat,
     _exg_min: i32,
@@ -46,8 +65,7 @@ fn hsv_wrapper(
     hsv(src, h_min, h_max, s_min, s_max, v_min, v_max, invert)
 }
 
-/* ───────────────────────── struct ───────────────────────── */
-
+/// Green-on-Brown detection engine
 pub struct GreenOnBrown {
     kernel: Mat,
     simple: HashMap<String, AlgFn>,
@@ -55,6 +73,13 @@ pub struct GreenOnBrown {
 }
 
 impl GreenOnBrown {
+    /// Create a new GreenOnBrown detector
+    /// 
+    /// # Arguments
+    /// * `default_alg` - Default algorithm to validate (for early error detection)
+    /// 
+    /// # Returns
+    /// * `Result<Self>` - New detector instance or error if algorithm is unsupported
     pub fn new(default_alg: &str) -> Result<Self> {
         let kernel = imgproc::get_structuring_element(
             imgproc::MORPH_ELLIPSE,
@@ -87,6 +112,50 @@ impl GreenOnBrown {
         })
     }
 
+    /// Run inference on a frame with simplified parameter structure
+    /// 
+    /// # Arguments
+    /// * `frame` - Input image frame
+    /// * `params` - Detection parameters
+    /// * `show_window` - Whether to prepare frame for display
+    /// * `label` - Label to draw on detected objects
+    /// 
+    /// # Returns
+    /// * `Result<DetectionResult>` - Detection results or error
+    pub fn detect(
+        &self,
+        frame: &Mat,
+        params: &DetectionParams,
+        show_window: bool,
+        label: &str,
+    ) -> Result<DetectionResult> {
+        self.inference(
+            frame,
+            params.exg_min,
+            params.exg_max,
+            params.hue_min,
+            params.hue_max,
+            params.brightness_min,
+            params.brightness_max,
+            params.saturation_min,
+            params.saturation_max,
+            params.min_area,
+            show_window,
+            &params.algorithm,
+            params.invert_hue,
+            label,
+        )
+        .map(|(contours, boxes, centers, annotated)| DetectionResult {
+            contours,
+            bounding_boxes: boxes,
+            centers,
+            annotated_frame: annotated,
+        })
+    }
+
+    /// Legacy inference method (kept for backward compatibility)
+    /// 
+    /// Consider using `detect()` with `DetectionParams` for cleaner code.
     #[allow(clippy::too_many_arguments)]
     pub fn inference(
         &self,

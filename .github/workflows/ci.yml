@@ -1,0 +1,201 @@
+name: CI
+
+# Enhanced CI workflow for the cleaned-up Rust-Spray project
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # Quick format and lint check
+  lint:
+    name: Lint and Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Clippy analysis
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+  # Test on host (non-ARM) platform
+  test-host:
+    name: Test on Host Platform
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install OpenCV dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libopencv-dev clang libclang-dev
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build without GPIO features (host platform)
+        run: cargo build --verbose
+
+      - name: Run tests without GPIO features
+        run: cargo test --verbose
+
+      - name: Test example compilation
+        run: cargo check --example basic_usage
+
+      - name: Build documentation
+        run: cargo doc --no-deps --all-features
+
+  # Cross-compilation tests for ARM targets
+  cross-compile:
+    name: Cross-compile for ARM
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target:
+          - aarch64-unknown-linux-gnu
+          - armv7-unknown-linux-gnueabihf
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross
+        run: cargo install cross --git https://github.com/cross-rs/cross --locked
+
+      - name: Set up cross configuration
+        run: |
+          export GHCR_USER=${{ github.repository_owner }}
+          envsubst < Cross.toml > Cross.expanded.toml
+          mv Cross.expanded.toml Cross.toml
+
+      - name: Build with cross (with GPIO features)
+        env:
+          PKG_CONFIG_ALLOW_CROSS: "1"
+        run: cross build --target ${{ matrix.target }} --features raspberry-pi
+
+      - name: Build release with cross
+        env:
+          PKG_CONFIG_ALLOW_CROSS: "1"
+        run: cross build --release --target ${{ matrix.target }} --features raspberry-pi
+
+  # Integration tests with different feature combinations
+  feature-tests:
+    name: Feature Combination Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        features:
+          - ""                    # Default features
+          - "with-rppal"         # GPIO support
+          - "picam"              # Camera support
+          - "raspberry-pi"       # All Pi features
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install OpenCV dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libopencv-dev clang libclang-dev
+
+      - name: Test build with features "${{ matrix.features }}"
+        run: |
+          if [ -n "${{ matrix.features }}" ]; then
+            cargo check --features "${{ matrix.features }}"
+          else
+            cargo check
+          fi
+
+  # Security audit
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit
+
+      - name: Run security audit
+        run: cargo audit
+
+  # Check that the project builds on different Rust versions
+  msrv:
+    name: Minimum Supported Rust Version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust 1.70 (MSRV)
+        uses: dtolnay/rust-toolchain@1.70
+
+      - name: Install OpenCV dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libopencv-dev clang libclang-dev
+
+      - name: Test build with MSRV
+        run: cargo check
+
+  # Combined status check
+  ci-success:
+    name: CI Success
+    if: always()
+    needs:
+      - lint
+      - test-host
+      - cross-compile
+      - feature-tests
+      - security
+      - msrv
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check all jobs
+        run: |
+          if [[ "${{ needs.lint.result }}" == "success" && \
+                "${{ needs.test-host.result }}" == "success" && \
+                "${{ needs.cross-compile.result }}" == "success" && \
+                "${{ needs.feature-tests.result }}" == "success" && \
+                "${{ needs.security.result }}" == "success" && \
+                "${{ needs.msrv.result }}" == "success" ]]; then
+            echo "✅ All CI checks passed!"
+          else
+            echo "❌ Some CI checks failed"
+            exit 1
+          fi

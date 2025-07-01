@@ -1,16 +1,20 @@
-name: Build
+name: Build and Release
 
 permissions:
-  contents: read
+  contents: write
   packages: read
 
 on:
   push:
     branches: ["main"]
   pull_request:
+    branches: ["main"]
   release:
     types: [published]
   workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
   build:
@@ -28,10 +32,12 @@ jobs:
             image: ghcr.io/${{ github.repository_owner }}/aarch64-opencv:latest
             arch: arm64
             tar: aarch64-opencv.tar
+            features: raspberry-pi  # Use our new feature set
           - target: armv7-unknown-linux-gnueabihf
             image: ghcr.io/${{ github.repository_owner }}/armv7-opencv:latest
             arch: armv7
             tar: armv7-opencv.tar
+            features: raspberry-pi  # Use our new feature set
             continue-on-error: true
 
     steps:
@@ -100,7 +106,13 @@ jobs:
         env:
           PKG_CONFIG_ALLOW_CROSS: "1"
           CARGO_INCREMENTAL: "0"                 # still saves memory
-        run: cross build --release --target ${{ matrix.target }} --verbose
+        run: cross build --release --target ${{ matrix.target }} --features ${{ matrix.features }} --verbose
+
+      - name: Run tests with cross (if supported)
+        env:
+          PKG_CONFIG_ALLOW_CROSS: "1"
+        continue-on-error: true  # Some cross-compiled tests may not run
+        run: cross test --target ${{ matrix.target }} --features ${{ matrix.features }}
 
       - name: Upload artifact
         if: github.event_name != 'release'
