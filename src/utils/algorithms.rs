@@ -14,10 +14,10 @@ use opencv::{
 // ─── Helper functions ───────────────────────────────────────────────────────
 
 /// Split a BGR image into its component channels
-/// 
+///
 /// # Arguments
 /// * `src` - Input BGR image
-/// 
+///
 /// # Returns
 /// * `Result<(Mat, Mat, Mat)>` - Blue, Green, Red channels or error
 fn split_bgr(src: &Mat) -> Result<(Mat, Mat, Mat)> {
@@ -27,10 +27,10 @@ fn split_bgr(src: &Mat) -> Result<(Mat, Mat, Mat)> {
 }
 
 /// Convert a floating-point image to 8-bit unsigned
-/// 
+///
 /// # Arguments
 /// * `src` - Input floating-point image
-/// 
+///
 /// # Returns
 /// * `Result<Mat>` - 8-bit image or error
 fn to_u8(src: &Mat) -> Result<Mat> {

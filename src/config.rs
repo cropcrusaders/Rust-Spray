@@ -72,21 +72,21 @@ impl Config {
         // Validate camera resolution
         if self.camera.resolution_width == 0 || self.camera.resolution_height == 0 {
             return Err(ConfigError::Validation(
-                "Camera resolution must be greater than 0".to_string()
+                "Camera resolution must be greater than 0".to_string(),
             ));
         }
 
         // Validate detection parameters
         if self.detection.min_area < 0.0 {
             return Err(ConfigError::Validation(
-                "Minimum area must be non-negative".to_string()
+                "Minimum area must be non-negative".to_string(),
             ));
         }
 
         // Validate spray timing
         if self.spray.activation_duration_ms == 0 {
             return Err(ConfigError::Validation(
-                "Spray activation duration must be greater than 0".to_string()
+                "Spray activation duration must be greater than 0".to_string(),
             ));
         }
 

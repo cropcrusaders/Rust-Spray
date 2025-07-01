@@ -1,5 +1,5 @@
 //! Spray controller for GPIO-based sprayers
-//! 
+//!
 //! This module provides control for up to 4 sprayer outputs via GPIO pins.
 //! It's designed to work with Raspberry Pi GPIO using the rppal crate.
 
@@ -29,10 +29,10 @@ pub struct Sprayer {
 
 impl Sprayer {
     /// Create a new sprayer on the specified GPIO pin
-    /// 
+    ///
     /// # Arguments
     /// * `pin_num` - GPIO pin number
-    /// 
+    ///
     /// # Returns
     /// * `Result<Self, SprayError>` - New sprayer instance or error
     pub fn new(pin_num: u8) -> Result<Self, SprayError> {
@@ -44,8 +44,13 @@ impl Sprayer {
         }
         #[cfg(not(feature = "with-rppal"))]
         {
-            log::warn!("GPIO feature not enabled - sprayer on pin {} will not function", pin_num);
-            Ok(Sprayer { pin_number: pin_num })
+            log::warn!(
+                "GPIO feature not enabled - sprayer on pin {} will not function",
+                pin_num
+            );
+            Ok(Sprayer {
+                pin_number: pin_num,
+            })
         }
     }
 
@@ -74,7 +79,7 @@ impl Sprayer {
     }
 
     /// Pulse the sprayer for a specific duration
-    /// 
+    ///
     /// # Arguments
     /// * `duration` - How long to keep the sprayer active
     pub fn pulse(&mut self, duration: Duration) {
@@ -91,10 +96,10 @@ pub struct SprayController {
 
 impl SprayController {
     /// Create a new spray controller with 4 sprayers
-    /// 
+    ///
     /// # Arguments
     /// * `pins` - Array of 4 GPIO pin numbers for the sprayers
-    /// 
+    ///
     /// # Returns
     /// * `Result<Self, SprayError>` - New controller instance or error
     pub fn new(pins: [u8; 4]) -> Result<Self, SprayError> {
@@ -104,15 +109,15 @@ impl SprayController {
             Sprayer::new(pins[2])?,
             Sprayer::new(pins[3])?,
         ];
-        
+
         Ok(SprayController { sprayers })
     }
 
     /// Activate a specific sprayer by index
-    /// 
+    ///
     /// # Arguments
     /// * `index` - Sprayer index (0-3)
-    /// 
+    ///
     /// # Returns
     /// * `Result<(), SprayError>` - Success or error if index is invalid
     pub fn activate_sprayer(&mut self, index: usize) -> Result<(), SprayError> {
@@ -124,10 +129,10 @@ impl SprayController {
     }
 
     /// Deactivate a specific sprayer by index
-    /// 
+    ///
     /// # Arguments
     /// * `index` - Sprayer index (0-3)
-    /// 
+    ///
     /// # Returns
     /// * `Result<(), SprayError>` - Success or error if index is invalid
     pub fn deactivate_sprayer(&mut self, index: usize) -> Result<(), SprayError> {
@@ -139,11 +144,11 @@ impl SprayController {
     }
 
     /// Pulse a specific sprayer for a duration
-    /// 
+    ///
     /// # Arguments
     /// * `index` - Sprayer index (0-3)
     /// * `duration` - How long to pulse the sprayer
-    /// 
+    ///
     /// # Returns
     /// * `Result<(), SprayError>` - Success or error if index is invalid
     pub fn pulse_sprayer(&mut self, index: usize, duration: Duration) -> Result<(), SprayError> {
@@ -169,7 +174,7 @@ impl SprayController {
     }
 
     /// Pulse all sprayers for the same duration
-    /// 
+    ///
     /// # Arguments
     /// * `duration` - How long to pulse all sprayers
     pub fn pulse_all(&mut self, duration: Duration) {

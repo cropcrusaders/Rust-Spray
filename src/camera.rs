@@ -91,7 +91,7 @@ impl Camera {
     }
 
     /// Capture a frame from the camera
-    /// 
+    ///
     /// # Returns
     /// * `Result<Mat, CameraError>` - Captured frame or error
     pub fn capture(&mut self) -> Result<Mat, CameraError> {
@@ -105,15 +105,14 @@ impl Camera {
                 Ok(frame)
             }
             #[cfg(feature = "picam")]
-            CameraBackend::Pi(cam) => {
-                cam.capture()
-                    .map_err(|e| CameraError::Open(format!("Pi camera capture: {}", e)))
-            }
+            CameraBackend::Pi(cam) => cam
+                .capture()
+                .map_err(|e| CameraError::Open(format!("Pi camera capture: {}", e))),
         }
     }
 
     /// Get camera properties (if supported by backend)
-    /// 
+    ///
     /// # Returns
     /// * `Option<(u32, u32)>` - Width and height if available
     pub fn get_resolution(&self) -> Option<(u32, u32)> {
@@ -121,7 +120,7 @@ impl Camera {
             CameraBackend::OpenCv(cap) => {
                 if let (Ok(w), Ok(h)) = (
                     cap.get(videoio::CAP_PROP_FRAME_WIDTH),
-                    cap.get(videoio::CAP_PROP_FRAME_HEIGHT)
+                    cap.get(videoio::CAP_PROP_FRAME_HEIGHT),
                 ) {
                     Some((w as u32, h as u32))
                 } else {

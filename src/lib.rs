@@ -1,5 +1,5 @@
 //! Rust-Spray: A camera-based precision spraying system for agriculture
-//! 
+//!
 //! This crate provides a complete system for detecting weeds using computer vision
 //! and controlling sprayer hardware via GPIO pins.
 

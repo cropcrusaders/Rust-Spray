@@ -5,8 +5,7 @@
 
 use opencv::{
     core::{self, Mat, Point, Scalar, Size, Vector},
-    imgproc,
-    Result,
+    imgproc, Result,
 };
 use std::collections::HashMap;
 
@@ -42,10 +41,14 @@ pub struct DetectionResult {
 type AlgFn = fn(&Mat) -> Result<Mat>;
 type AlgFnWithParams = fn(
     &Mat,
-    i32, i32, // exg min / max (ignored by plain HSV)
-    i32, i32, // hue min / max
-    i32, i32, // sat min / max
-    i32, i32, // val min / max
+    i32,
+    i32, // exg min / max (ignored by plain HSV)
+    i32,
+    i32, // hue min / max
+    i32,
+    i32, // sat min / max
+    i32,
+    i32,  // val min / max
     bool, // invert hue?
 ) -> Result<(Mat, bool)>;
 
@@ -74,10 +77,10 @@ pub struct GreenOnBrown {
 
 impl GreenOnBrown {
     /// Create a new GreenOnBrown detector
-    /// 
+    ///
     /// # Arguments
     /// * `default_alg` - Default algorithm to validate (for early error detection)
-    /// 
+    ///
     /// # Returns
     /// * `Result<Self>` - New detector instance or error if algorithm is unsupported
     pub fn new(default_alg: &str) -> Result<Self> {
@@ -113,13 +116,13 @@ impl GreenOnBrown {
     }
 
     /// Run inference on a frame with simplified parameter structure
-    /// 
+    ///
     /// # Arguments
     /// * `frame` - Input image frame
     /// * `params` - Detection parameters
     /// * `show_window` - Whether to prepare frame for display
     /// * `label` - Label to draw on detected objects
-    /// 
+    ///
     /// # Returns
     /// * `Result<DetectionResult>` - Detection results or error
     pub fn detect(
@@ -154,7 +157,7 @@ impl GreenOnBrown {
     }
 
     /// Legacy inference method (kept for backward compatibility)
-    /// 
+    ///
     /// Consider using `detect()` with `DetectionParams` for cleaner code.
     #[allow(clippy::too_many_arguments)]
     pub fn inference(
