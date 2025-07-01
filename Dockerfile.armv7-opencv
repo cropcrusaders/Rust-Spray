@@ -68,7 +68,8 @@ RUN mkdir -p /arm-linux-gnueabihf/lib && \
 FROM ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:edge AS rust-build
 
 # Cross-rs images come with pre-configured Rust toolchain for the target
-# No need to install rustup or change toolchain
+# Add cargo to PATH
+ENV PATH="/root/.cargo/bin:${PATH}"
 RUN cargo --version && rustc --version
 
 COPY --from=opencv-build /opt/opencv /opt/opencv

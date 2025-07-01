@@ -2,12 +2,15 @@
 
 ## Root Cause Analysis
 
-The CI/CD pipeline was failing with the error:
-```
-/bin/sh: 1: rustup: not found
-```
+The CI/CD pipeline was failing with multiple errors:
 
-This occurred because the Dockerfiles were incorrectly trying to use `rustup` commands inside cross-rs Docker images. Cross-rs images (like `ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:edge`) come pre-configured with the appropriate Rust toolchain for the target architecture and **do not include rustup**.
+1. **First issue**: `rustup: not found`
+   - The Dockerfiles were trying to use `rustup` commands inside cross-rs Docker images
+   - Cross-rs images don't have rustup installed and don't need it
+
+2. **Second issue**: `cargo: not found`
+   - After fixing the rustup issue, cargo was not in the PATH
+   - Cross-rs images have cargo installed but not in the default PATH
 
 ## Issues Fixed
 
@@ -29,7 +32,8 @@ COPY --from=rust-build /workspace/target/armv7-unknown-linux-gnueabihf/release/r
 FROM ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:edge AS rust-build
 
 # Cross-rs images come with pre-configured Rust toolchain for the target
-# No need to install rustup or change toolchain
+# Add cargo to PATH
+ENV PATH="/root/.cargo/bin:${PATH}"
 RUN cargo --version && rustc --version  # ✅ verify toolchain
 RUN cargo build --release  # ✅ use cargo directly
 COPY --from=rust-build /workspace/target/release/rustspray  # ✅ correct path
@@ -52,7 +56,8 @@ COPY --from=rust-build /workspace/target/aarch64-unknown-linux-gnu/release/rusts
 FROM ghcr.io/cross-rs/aarch64-unknown-linux-gnu:main AS rust-build
 
 # Cross-rs images come with pre-configured Rust toolchain for the target
-# No need to install rustup or change toolchain
+# Add cargo to PATH
+ENV PATH="/root/.cargo/bin:${PATH}"
 RUN cargo --version && rustc --version  # ✅ verify toolchain
 RUN cargo build --release  # ✅ use cargo directly
 COPY --from=rust-build /workspace/target/release/rustspray  # ✅ correct path
@@ -62,9 +67,10 @@ COPY --from=rust-build /workspace/target/release/rustspray  # ✅ correct path
 
 1. **Removed rustup dependencies**: Cross-rs images don't have rustup and don't need it
 2. **Removed cross installation**: Cross should be used from the host, not inside the container
-3. **Use cargo directly**: Inside cross-rs containers, use `cargo build` instead of `cross build`
-4. **Fixed binary paths**: Cross-rs containers output to `target/release/` not target-specific subdirectories
-5. **Added verification**: Simple `cargo --version && rustc --version` to verify the toolchain
+3. **Added cargo to PATH**: Cross-rs images have cargo installed but not in the default PATH
+4. **Use cargo directly**: Inside cross-rs containers, use `cargo build` instead of `cross build`
+5. **Fixed binary paths**: Cross-rs containers output to `target/release/` not target-specific subdirectories
+6. **Added verification**: Simple `cargo --version && rustc --version` to verify the toolchain
 
 ## How Cross-rs Images Work
 
@@ -72,9 +78,10 @@ Cross-rs Docker images are specifically designed for cross-compilation:
 
 1. **Pre-configured toolchain**: They come with the appropriate Rust toolchain already installed for the target architecture.
 2. **No rustup needed**: Since the toolchain is pre-configured, there's no need to install or use rustup.
-3. **Direct cargo usage**: You can use `cargo build` directly instead of `cross build` when inside the container.
-4. **Standard target directory**: The compiled binaries go to `target/release/` rather than the target-specific subdirectory.
-5. **Sysroot configured**: The system libraries and headers for the target architecture are pre-installed.
+3. **Cargo in non-standard location**: Cargo is installed but requires PATH configuration (`/root/.cargo/bin`).
+4. **Direct cargo usage**: You can use `cargo build` directly instead of `cross build` when inside the container.
+5. **Standard target directory**: The compiled binaries go to `target/release/` rather than the target-specific subdirectory.
+6. **Sysroot configured**: The system libraries and headers for the target architecture are pre-installed.
 
 ## CI/CD Integration
 
