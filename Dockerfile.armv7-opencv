@@ -77,13 +77,13 @@ ENV PKG_CONFIG_PATH=/opt/opencv/lib/pkgconfig
 WORKDIR /workspace
 COPY . /workspace
 
-RUN cross build --release --target armv7-unknown-linux-gnueabihf
+RUN cargo build --release
 
 # ------------------------------------------------------------
 # Stage 3 - Runtime image
 # ------------------------------------------------------------
 FROM ubuntu:22.04 AS runtime
 COPY --from=opencv-build /opt/opencv /opt/opencv
-COPY --from=rust-build /workspace/target/armv7-unknown-linux-gnueabihf/release/rustspray /usr/local/bin/rustspray
+COPY --from=rust-build /workspace/target/release/rustspray /usr/local/bin/rustspray
 ENV LD_LIBRARY_PATH=/opt/opencv/lib
 CMD ["/usr/local/bin/rustspray"]

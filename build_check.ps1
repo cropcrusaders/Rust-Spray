@@ -118,3 +118,16 @@ Write-Host "• Lockfile Updates (.github/workflows/pr.yml)" -ForegroundColor Ye
 Write-Host ""
 Write-Host "Note: The failed CI test was due to formatting issues that have been resolved." -ForegroundColor Green
 Write-Host "Push your changes to trigger the fixed workflows." -ForegroundColor Green
+
+Write-Host ""
+Write-Host "🔧 CI/CD Status & Docker Fixes:" -ForegroundColor Cyan
+Write-Host "================================="
+Write-Host "Recent fixes applied to cross-compilation Dockerfiles:" -ForegroundColor Green
+Write-Host "✅ Fixed rustup issues in Dockerfile.armv7-opencv" -ForegroundColor Green
+Write-Host "✅ Fixed rustup issues in Dockerfile.cross-aarch64" -ForegroundColor Green
+Write-Host "✅ Updated binary paths for cross-rs images" -ForegroundColor Green
+Write-Host ""
+Write-Host "Cross-compilation should now work correctly for ARM targets." -ForegroundColor Green
+Write-Host "See DOCKERFILE_FIXES.md for detailed information." -ForegroundColor Yellow
+Write-Host ""
+Write-Host "📋 Build Commands:"

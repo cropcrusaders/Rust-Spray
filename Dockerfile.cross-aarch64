@@ -46,13 +46,11 @@ RUN git clone --depth 1 -b ${OPENCV_VERSION} https://github.com/opencv/opencv.gi
 # ------------------------------------------------------------
 # Stage 2 - Build Rust project using cross
 # ------------------------------------------------------------
-ARG RUST_TOOLCHAIN=stable
 FROM ghcr.io/cross-rs/aarch64-unknown-linux-gnu:main AS rust-build
 
-RUN rustup default ${RUST_TOOLCHAIN}
-
-# Install cross inside the container
-RUN cargo install --git https://github.com/cross-rs/cross cross --locked
+# Cross-rs images come with pre-configured Rust toolchain for the target
+# No need to install rustup or change toolchain
+RUN cargo --version && rustc --version
 
 COPY --from=opencv-build /opt/opencv /opt/opencv
 ENV PKG_CONFIG_PATH=/opt/opencv/lib/pkgconfig
@@ -60,14 +58,14 @@ ENV PKG_CONFIG_PATH=/opt/opencv/lib/pkgconfig
 WORKDIR /workspace
 COPY . /workspace
 
-RUN cross build --release --target aarch64-unknown-linux-gnu
+RUN cargo build --release
 
 # ------------------------------------------------------------
 # Stage 3 - Runtime image
 # ------------------------------------------------------------
 FROM ubuntu:22.04 AS runtime
 COPY --from=opencv-build /opt/opencv /opt/opencv
-COPY --from=rust-build /workspace/target/aarch64-unknown-linux-gnu/release/rustspray /usr/local/bin/rustspray
+COPY --from=rust-build /workspace/target/release/rustspray /usr/local/bin/rustspray
 ENV LD_LIBRARY_PATH=/opt/opencv/lib
 CMD ["/usr/local/bin/rustspray"]
 
