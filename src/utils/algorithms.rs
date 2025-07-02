@@ -42,13 +42,13 @@ fn to_u8(src: &Mat) -> Result<Mat> {
 // ─── Vegetation Index Algorithms ───────────────────────────────────────────
 
 /// Excess Green (ExG) vegetation index
-/// 
+///
 /// Calculates ExG = 2*G - R - B, useful for detecting green vegetation
 /// against brown soil backgrounds.
-/// 
+///
 /// # Arguments
 /// * `src` - Input BGR image
-/// 
+///
 /// # Returns
 /// * `Result<Mat>` - ExG index image or error
 pub fn exg(src: &Mat) -> Result<Mat> {
@@ -61,13 +61,13 @@ pub fn exg(src: &Mat) -> Result<Mat> {
 }
 
 /// Excess Green minus Excess Red (ExGR) vegetation index
-/// 
+///
 /// Combines ExG with ExR to improve vegetation detection by reducing
 /// reddish soil interference.
-/// 
+///
 /// # Arguments
 /// * `src` - Input BGR image
-/// 
+///
 /// # Returns
 /// * `Result<Mat>` - ExGR index image or error
 pub fn exgr(src: &Mat) -> Result<Mat> {
@@ -79,13 +79,13 @@ pub fn exgr(src: &Mat) -> Result<Mat> {
 }
 
 /// Maximum Green (MaxG) vegetation index
-/// 
+///
 /// Takes the maximum of the green channel against red and blue channels.
 /// Simple but effective for certain lighting conditions.
-/// 
+///
 /// # Arguments
 /// * `src` - Input BGR image
-/// 
+///
 /// # Returns
 /// * `Result<Mat>` - MaxG index image or error
 pub fn maxg(src: &Mat) -> Result<Mat> {

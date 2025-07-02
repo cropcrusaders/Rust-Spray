@@ -3,7 +3,7 @@ use rustspray::config::{Config, ConfigError};
 #[test]
 fn test_config_loading() {
     let config = Config::load("config/Config.toml").expect("Failed to load config");
-    
+
     // Verify basic structure
     assert!(!config.camera.device.is_empty());
     assert!(config.camera.resolution_width > 0);
@@ -41,7 +41,10 @@ activation_duration_ms = 200
 
     let config: Config = toml::from_str(toml_content).expect("Failed to parse TOML");
     let validation_result = config.validate();
-    assert!(validation_result.is_err(), "Expected validation to fail for zero resolution");
+    assert!(
+        validation_result.is_err(),
+        "Expected validation to fail for zero resolution"
+    );
 }
 
 #[test]
@@ -72,10 +75,16 @@ activation_duration_ms = 200
 
     let config: Config = toml::from_str(toml_content).expect("Failed to parse TOML");
     let validation_result = config.validate();
-    assert!(validation_result.is_err(), "Expected validation to fail for unsupported algorithm");
-    
+    assert!(
+        validation_result.is_err(),
+        "Expected validation to fail for unsupported algorithm"
+    );
+
     if let Err(ConfigError::Validation(msg)) = validation_result {
-        assert!(msg.contains("Unsupported algorithm"), "Error message should mention unsupported algorithm");
+        assert!(
+            msg.contains("Unsupported algorithm"),
+            "Error message should mention unsupported algorithm"
+        );
     } else {
         panic!("Expected ConfigError::Validation");
     }
@@ -109,5 +118,8 @@ activation_duration_ms = 200
 
     let config: Config = toml::from_str(toml_content).expect("Failed to parse TOML");
     let validation_result = config.validate();
-    assert!(validation_result.is_ok(), "Expected validation to pass for valid config");
+    assert!(
+        validation_result.is_ok(),
+        "Expected validation to pass for valid config"
+    );
 }
