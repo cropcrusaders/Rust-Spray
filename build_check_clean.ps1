@@ -55,7 +55,7 @@ if (Test-Path "examples/basic_usage.rs") {
 }
 
 Write-Host ""
-Write-Host "� Prerequisites Check:" -ForegroundColor Cyan
+Write-Host "⚙️ Prerequisites Check:" -ForegroundColor Cyan
 Write-Host "======================="
 
 # Check if Rust is installed
@@ -87,7 +87,7 @@ try {
 }
 
 Write-Host ""
-Write-Host "�📋 Build Commands:" -ForegroundColor Cyan
+Write-Host "📋 Build Commands:" -ForegroundColor Cyan
 Write-Host "=================="
 Write-Host "Standard build:          cargo build"
 Write-Host "Release build:           cargo build --release"
