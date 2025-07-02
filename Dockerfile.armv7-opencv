@@ -68,9 +68,9 @@ RUN mkdir -p /arm-linux-gnueabihf/lib && \
 FROM ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:edge AS rust-build
 
 # Cross-rs images come with pre-configured Rust toolchain for the target
-# Add cargo to PATH
-ENV PATH="/root/.cargo/bin:${PATH}"
-RUN cargo --version && rustc --version
+# The cross-rs images have Rust installed in /usr/local/cargo
+ENV PATH="/usr/local/cargo/bin:${PATH}"
+RUN which cargo && cargo --version && rustc --version
 
 COPY --from=opencv-build /opt/opencv /opt/opencv
 ENV PKG_CONFIG_PATH=/opt/opencv/lib/pkgconfig
