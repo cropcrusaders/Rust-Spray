@@ -123,4 +123,28 @@ The project is now ready for:
 - ✅ **Deployment** to Raspberry Pi or other ARM-based systems
 - ✅ **Contribution** with consistent code formatting and clear structure
 
+## 🛠️ **VS Code Extensions**
+
+Essential extensions for Rust-Spray development have been documented in `VS_CODE_EXTENSIONS.md`:
+
+### Core Rust Development
+- **rust-lang.rust-analyzer** - Official Rust language server
+- **vadimcn.vscode-lldb** - Native debugging support
+- **serayuzgur.crates** - Cargo.toml dependency management
+
+### GitHub Actions & CI/CD Debugging
+- **github.vscode-github-actions** - GitHub Actions workflow support
+- **redhat.vscode-yaml** - YAML language support with GitHub Actions syntax
+- **github.vscode-pull-request-github** - GitHub integration
+
+### Additional Tools
+- **mhutchie.git-graph** - Visual Git repository graph
+- **eamodio.gitlens** - Advanced Git capabilities
+- **ms-azuretools.vscode-docker** - Docker container management
+- **trunk.io** - Universal code quality tools
+
+The GitHub Actions extension is particularly useful for debugging the CI/CD workflows and monitoring build status.
+
+---
+
 All major modernization tasks have been completed successfully. The project now follows Rust best practices and modern CI/CD standards.

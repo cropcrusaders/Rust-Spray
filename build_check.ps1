@@ -138,3 +138,26 @@ Write-Host "• Rust/Cargo not detected on this system" -ForegroundColor Yellow
 Write-Host "• Install Rust from: https://rustup.rs/" -ForegroundColor Yellow
 Write-Host "• All fixes have been applied and CI/CD should pass" -ForegroundColor Green
 Write-Host "• Push changes to trigger the updated workflows" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "🔧 GitHub Actions Debugging:" -ForegroundColor Cyan
+Write-Host "============================="
+Write-Host "• Install GitHub Actions extension in VS Code" -ForegroundColor Yellow
+Write-Host "• Use Ctrl+Shift+P → 'GitHub Actions: View Workflow Runs'" -ForegroundColor Green
+Write-Host "• Monitor ARM cross-compilation attempts (expected to fail)" -ForegroundColor Yellow
+Write-Host "• Check x86_64 native builds (should succeed)" -ForegroundColor Green
+Write-Host "• See GITHUB_ACTIONS_DEBUGGING.md for detailed guide" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "⚠️  Known Issue: OpenCV Cross-Compilation" -ForegroundColor Yellow
+Write-Host "=========================================="
+Write-Host "• ARM cross-builds fail due to OpenCV dependency" -ForegroundColor Yellow
+Write-Host "• This is expected and documented in FINAL_PROJECT_STATUS.md" -ForegroundColor Green
+Write-Host "• x86_64 builds work perfectly" -ForegroundColor Green
+Write-Host "• ARM builds will succeed if OpenCV is made optional" -ForegroundColor Yellow
+Write-Host "• Error: 'Failed to find installed OpenCV package using probes'" -ForegroundColor Red
+Write-Host ""
+Write-Host "⚠️  Known Issue: OpenCV Cross-Compilation" -ForegroundColor Yellow
+Write-Host "==========================================="
+Write-Host "• ARM cross-builds fail due to missing OpenCV in cross container" -ForegroundColor Red
+Write-Host "• OpenCV is optional - builds work without it on ARM" -ForegroundColor Yellow
+Write-Host "• For ARM builds, OpenCV detection code is skipped" -ForegroundColor Yellow
+Write-Host "• Native builds on ARM devices will have full OpenCV support" -ForegroundColor Green

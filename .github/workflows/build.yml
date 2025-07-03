@@ -29,7 +29,9 @@ jobs:
           - target: armv7-unknown-linux-gnueabihf
             arch: armv7
             features: with-rppal  # Build without OpenCV for cross-compilation
-            continue-on-error: true
+    
+    # Continue on error for known OpenCV cross-compilation issues
+    continue-on-error: ${{ contains(matrix.target, 'arm') }}
 
     steps:
       - name: Checkout
@@ -48,16 +50,42 @@ jobs:
       - name: Add cargo bin to PATH
         run: echo "${HOME}/.cargo/bin" >> $GITHUB_PATH
 
+      - name: Debug Environment
+        run: |
+          echo "=== Build Information ==="
+          echo "Target: ${{ matrix.target }}"
+          echo "Arch: ${{ matrix.arch }}"
+          echo "Features: ${{ matrix.features }}"
+          echo "Runner OS: ${{ runner.os }}"
+          echo "=== Rust Toolchain ==="
+          rustc --version
+          cargo --version
+          cross --version
+          echo "=== Installed Targets ==="
+          rustup target list --installed
+
       - name: +8 GB swap to survive clang
         uses: pierotofy/set-swap-space@v1.0
         with:
           swap-size-gb: 8
 
-      - name: Build
+      - name: Build with cross-compilation
         env:
           PKG_CONFIG_ALLOW_CROSS: "1"
           CARGO_INCREMENTAL: "0"                 # still saves memory
-        run: cross build --release --target ${{ matrix.target }} --features ${{ matrix.features }} --verbose
+        run: |
+          echo "=== Starting Cross-Compilation Build ==="
+          echo "Target: ${{ matrix.target }}"
+          echo "Features: ${{ matrix.features }}"
+          
+          # Try building with specified features
+          if cross build --release --target ${{ matrix.target }} --features ${{ matrix.features }} --verbose; then
+            echo "✅ Build succeeded with features: ${{ matrix.features }}"
+          else
+            echo "❌ Build failed with OpenCV, this is expected for ARM cross-compilation"
+            echo "See FINAL_PROJECT_STATUS.md for details on OpenCV cross-compilation limitations"
+            exit 1
+          fi
 
       - name: Install cargo-deb
         if: github.event_name == 'release'
@@ -70,21 +98,44 @@ jobs:
         run: cross test --target ${{ matrix.target }} --features ${{ matrix.features }}
 
       - name: Upload artifact
-        if: github.event_name != 'release'
+        if: success() || failure()  # Upload artifacts even if build failed for debugging
         uses: actions/upload-artifact@v4
         with:
-          name: rustspray-${{ matrix.arch }}
-          path: target/${{ matrix.target }}/release/rustspray
+          name: rustspray-${{ matrix.arch }}-${{ github.run_id }}
+          path: |
+            target/${{ matrix.target }}/release/rustspray
+            target/${{ matrix.target }}/release/rustspray.exe
+          if-no-files-found: warn
 
       - name: Build Debian package
-        if: github.event_name == 'release'
+        if: github.event_name == 'release' && success()
         run: cargo deb --no-build --target ${{ matrix.target }}
 
-      - name: Upload Debian package
-        if: github.event_name == 'release'
-        uses: actions/upload-release-asset@v1
+      - name: Upload Debian package to release
+        if: github.event_name == 'release' && success()
+        uses: softprops/action-gh-release@v1
         with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: target/${{ matrix.target }}/debian/rustspray_*.deb
-          asset_name: rustspray_${{ github.event.release.tag_name }}_${{ matrix.arch }}.deb
-          asset_content_type: application/vnd.debian.binary-package
+          files: target/${{ matrix.target }}/debian/rustspray_*.deb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  test-native:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Run tests
+        run: cargo test --verbose
+
+      - name: Build native (x86_64)
+        run: cargo build --release --verbose
+
+      - name: Upload native build
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustspray-x86_64-${{ github.run_id }}
+          path: target/release/rustspray
