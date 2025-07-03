@@ -38,6 +38,8 @@ jobs:
   test-host:
     name: Test on Host Platform
     runs-on: ubuntu-latest
+    env:
+      PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -56,11 +58,6 @@ jobs:
           fi
           echo "✅ OpenCV dependencies installed successfully"
 
-      - name: Configure pkg-config for host
-        run: |
-          echo "PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig" >> $GITHUB_ENV
-          echo "✅ Set PKG_CONFIG_PATH for host build"
-
       - name: Cache dependencies
         uses: actions/cache@v4
         with:
@@ -73,13 +70,9 @@ jobs:
             ci-${{ runner.os }}-cargo-
 
       - name: Build without GPIO features (host platform)
-        env:
-          PKG_CONFIG_PATH: ${{ env.PKG_CONFIG_PATH }}
         run: cargo build --verbose
 
       - name: Run tests without GPIO features
-        env:
-          PKG_CONFIG_PATH: ${{ env.PKG_CONFIG_PATH }}
         run: cargo test --verbose
 
       - name: Test example compilation
