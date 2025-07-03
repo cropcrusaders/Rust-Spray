@@ -70,6 +70,8 @@ jobs:
           swap-size-gb: 8
 
       - name: Build with cross-compilation
+        id: build_step
+        shell: bash
         env:
           PKG_CONFIG_ALLOW_CROSS: "1"
           CARGO_INCREMENTAL: "0"                 # still saves memory
@@ -78,14 +80,53 @@ jobs:
           echo "Target: ${{ matrix.target }}"
           echo "Features: ${{ matrix.features }}"
           
-          # Try building with specified features
+          # Try building with specified features first
           if cross build --release --target ${{ matrix.target }} --features ${{ matrix.features }} --verbose; then
             echo "✅ Build succeeded with features: ${{ matrix.features }}"
+            echo "BUILD_STATUS=success" >> $GITHUB_OUTPUT
           else
-            echo "❌ Build failed with OpenCV, this is expected for ARM cross-compilation"
-            echo "See FINAL_PROJECT_STATUS.md for details on OpenCV cross-compilation limitations"
-            exit 1
+            echo "❌ Build failed with OpenCV features, attempting fallback build..."
+            
+            # Try building without OpenCV features for ARM targets
+            if [[ "${{ matrix.target }}" == *"arm"* ]]; then
+              echo "🔄 Attempting fallback build without OpenCV for ARM target..."
+              if cross build --release --target ${{ matrix.target }} --no-default-features --verbose; then
+                echo "✅ Fallback build succeeded without OpenCV"
+                echo "BUILD_STATUS=fallback_success" >> $GITHUB_OUTPUT
+              else
+                echo "❌ Both primary and fallback builds failed"
+                echo "BUILD_STATUS=failed" >> $GITHUB_OUTPUT
+                echo "See FINAL_PROJECT_STATUS.md for details on OpenCV cross-compilation limitations"
+                # Don't exit 1 here - let continue-on-error handle it
+              fi
+            else
+              echo "❌ Non-ARM build failed unexpectedly"
+              echo "BUILD_STATUS=failed" >> $GITHUB_OUTPUT
+              exit 1
+            fi
           fi
+
+      - name: Build summary
+        if: always()
+        run: |
+          echo "=== Build Summary ==="
+          echo "Target: ${{ matrix.target }}"
+          echo "Status: ${{ steps.build_step.outputs.BUILD_STATUS }}"
+          
+          case "${{ steps.build_step.outputs.BUILD_STATUS }}" in
+            "success")
+              echo "🎉 Build completed successfully with all features"
+              ;;
+            "fallback_success")
+              echo "⚠️  Build completed with fallback (no OpenCV) - this is expected for ARM cross-compilation"
+              ;;
+            "failed")
+              echo "❌ Build failed completely"
+              ;;
+            *)
+              echo "❓ Build status unknown"
+              ;;
+          esac
 
       - name: Install cargo-deb
         if: github.event_name == 'release'

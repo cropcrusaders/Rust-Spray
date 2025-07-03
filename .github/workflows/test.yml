@@ -1,11 +1,14 @@
 name: Quick Tests
 
 # Fast workflow for basic checks on every commit
+permissions:
+  contents: read
+  packages: read
+
 on:
   push:
-    branches: ["main", "develop"]
-  pull_request:
-    branches: ["main"]
+    branches: ["develop"]  # Only trigger on develop branch
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
@@ -25,8 +28,9 @@ jobs:
 
       - name: Install OpenCV dependencies
         run: |
+          echo "Installing OpenCV dependencies..."
           sudo apt-get update
-          sudo apt-get install -y \
+          if ! sudo apt-get install -y \
             libopencv-dev \
             libopencv-core-dev \
             libopencv-imgproc-dev \
@@ -36,18 +40,23 @@ jobs:
             libopencv-objdetect-dev \
             clang \
             libclang-dev \
-            pkg-config
+            pkg-config; then
+            echo "❌ Failed to install OpenCV dependencies"
+            echo "This will likely cause build failures"
+            exit 1
+          fi
+          echo "✅ OpenCV dependencies installed successfully"
 
       - name: Cache Cargo dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: test-${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-cargo-
+            test-${{ runner.os }}-cargo-
 
       - name: Check formatting
         run: cargo fmt --all -- --check

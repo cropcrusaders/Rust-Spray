@@ -1,13 +1,18 @@
 name: Yocto Build
 
+permissions:
+  contents: read
+  packages: read
+
 on:
-  workflow_dispatch:
-  push:
-    branches: ["main"]
+  workflow_dispatch:  # Manual trigger only
+  schedule:
+    - cron: '0 2 * * 0'  # Weekly on Sunday at 2 AM
 
 jobs:
   build-yocto:
-    runs-on: self-hosted
+    runs-on: ${{ github.repository_owner == 'cropcrusaders' && 'self-hosted' || 'ubuntu-latest' }}
+    timeout-minutes: 180  # 3 hours maximum
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

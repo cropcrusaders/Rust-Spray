@@ -45,24 +45,24 @@ jobs:
       id: cargo_diff
       run: |
         if git diff --quiet Cargo.lock; then
-          echo "no_changes=true" >> "$GITHUB_ENV"
+          echo "no_changes=true" >> "$GITHUB_OUTPUT"
           echo "📋 No changes detected in Cargo.lock"
         else
-          echo "no_changes=false" >> "$GITHUB_ENV"
+          echo "no_changes=false" >> "$GITHUB_OUTPUT"
           echo "📋 Changes detected in Cargo.lock:"
           git diff --stat Cargo.lock
         fi
 
     # 6️⃣  Skip if no changes
     - name: No changes detected
-      if: env.no_changes == 'true'
+      if: steps.cargo_diff.outputs.no_changes == 'true'
       run: |
         echo "✅ Cargo.lock is already up to date"
         echo "🎯 No pull request needed"
 
     # 7️⃣  If changed, commit to new branch & open PR
     - name: Create branch, commit and open PR
-      if: env.no_changes == 'false'
+      if: steps.cargo_diff.outputs.no_changes == 'false'
       env:
         GH_TOKEN: ${{ github.token }}         # use built-in GITHUB_TOKEN
         TZ: Australia/Brisbane

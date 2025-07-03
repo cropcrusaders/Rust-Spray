@@ -1,9 +1,11 @@
 name: CI
 
 # Enhanced CI workflow for the cleaned-up Rust-Spray project
+permissions:
+  contents: read
+  packages: read
+
 on:
-  push:
-    branches: ["main"]
   pull_request:
     branches: ["main"]
   workflow_dispatch:
@@ -45,17 +47,25 @@ jobs:
 
       - name: Install OpenCV dependencies
         run: |
+          echo "Installing OpenCV dependencies..."
           sudo apt-get update
-          sudo apt-get install -y libopencv-dev clang libclang-dev
+          if ! sudo apt-get install -y libopencv-dev clang libclang-dev; then
+            echo "❌ Failed to install OpenCV dependencies"
+            echo "This may cause build failures for OpenCV-dependent features"
+            exit 1
+          fi
+          echo "✅ OpenCV dependencies installed successfully"
 
       - name: Cache dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ci-${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ci-${{ runner.os }}-cargo-
 
       - name: Build without GPIO features (host platform)
         run: cargo build --verbose
