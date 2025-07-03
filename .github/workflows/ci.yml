@@ -56,6 +56,11 @@ jobs:
           fi
           echo "✅ OpenCV dependencies installed successfully"
 
+      - name: Configure pkg-config for host
+        run: |
+          echo "PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig" >> $GITHUB_ENV
+          echo "✅ Set PKG_CONFIG_PATH for host build"
+
       - name: Cache dependencies
         uses: actions/cache@v4
         with:
@@ -183,6 +188,8 @@ jobs:
           echo "Testing feature combinations for ARM target..."
 
       - name: Build with cross (Smart Multi-Stage Strategy)
+        env:
+          RUSTFLAGS: "-C target-feature=-crt-static"
         run: |
           echo "🎯 Starting ARM cross-compilation for ${{ matrix.target }}"
           
@@ -231,6 +238,8 @@ jobs:
           exit 1
 
       - name: Build release with cross (Smart Strategy)
+        env:
+          RUSTFLAGS: "-C target-feature=-crt-static"
         run: |
           echo "🚀 Building release binary for ${{ matrix.target }}"
           
