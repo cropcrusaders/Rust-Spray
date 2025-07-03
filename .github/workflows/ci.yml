@@ -190,12 +190,15 @@ jobs:
       - name: Build with cross (Smart Multi-Stage Strategy)
         env:
           RUSTFLAGS: "-C target-feature=-crt-static"
+          PKG_CONFIG_ALLOW_CROSS: 1
+          PKG_CONFIG_PATH: ${{ env.PKG_CONFIG_PATH }}
+          LD_LIBRARY_PATH: ${{ env.LD_LIBRARY_PATH }}
         run: |
           echo "🎯 Starting ARM cross-compilation for ${{ matrix.target }}"
           
           # Strategy 1: Full build with all features
           echo "📋 Strategy 1: Attempting full build with OpenCV..."
-          if env PKG_CONFIG_ALLOW_CROSS=1 PKG_CONFIG_PATH=$PKG_CONFIG_PATH LD_LIBRARY_PATH=$LD_LIBRARY_PATH cross build --target ${{ matrix.target }} --features raspberry-pi; then
+          if cross build --target ${{ matrix.target }} --features raspberry-pi; then
             echo "✅ SUCCESS: Full ARM build with OpenCV completed"
             echo "🎉 This is the ideal outcome - all features working!"
             exit 0
@@ -240,12 +243,15 @@ jobs:
       - name: Build release with cross (Smart Strategy)
         env:
           RUSTFLAGS: "-C target-feature=-crt-static"
+          PKG_CONFIG_ALLOW_CROSS: 1
+          PKG_CONFIG_PATH: ${{ env.PKG_CONFIG_PATH }}
+          LD_LIBRARY_PATH: ${{ env.LD_LIBRARY_PATH }}
         run: |
           echo "🚀 Building release binary for ${{ matrix.target }}"
           
           # Try to build with the same strategy that succeeded above
           # This mirrors the debug build logic but for release
-          if env PKG_CONFIG_ALLOW_CROSS=1 PKG_CONFIG_PATH=$PKG_CONFIG_PATH LD_LIBRARY_PATH=$LD_LIBRARY_PATH cross build --release --target ${{ matrix.target }} --features raspberry-pi; then
+          if cross build --release --target ${{ matrix.target }} --features raspberry-pi; then
             echo "✅ Release build with full features completed"
           elif cross build --release --target ${{ matrix.target }} --features with-rppal,picam; then
             echo "✅ Release build with GPIO features completed"
@@ -262,6 +268,8 @@ jobs:
   feature-tests:
     name: Feature Combination Tests
     runs-on: ubuntu-latest
+    env:
+      PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig
     strategy:
       matrix:
         features:
@@ -310,6 +318,8 @@ jobs:
   msrv:
     name: Minimum Supported Rust Version
     runs-on: ubuntu-latest
+    env:
+      PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
