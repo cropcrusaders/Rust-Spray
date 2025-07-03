@@ -69,14 +69,14 @@ jobs:
           restore-keys: |
             ci-${{ runner.os }}-cargo-
 
-      - name: Build without GPIO features (host platform)
-        run: cargo build --verbose
+      - name: Build with host features
+        run: cargo build --verbose --features host
 
-      - name: Run tests without GPIO features
-        run: cargo test --verbose
+      - name: Run tests with host features
+        run: cargo test --verbose --features host
 
       - name: Test example compilation
-        run: cargo check --example basic_usage
+        run: cargo check --example basic_usage --features host
 
       - name: Build documentation
         run: cargo doc --no-deps --all-features
