@@ -148,6 +148,7 @@ jobs:
           fi
 
       - name: Configure pkg-config for cross
+        id: pkg_config_cross
         shell: bash
         run: |
           echo "🔧 Configuring pkg-config for ${{ matrix.target }}"
@@ -161,6 +162,8 @@ jobs:
           echo "PKG_CONFIG_PATH=${PKG_CONFIG_PATH}" >> $GITHUB_ENV
           echo "LD_LIBRARY_PATH=${LD_LIBRARY_PATH}" >> $GITHUB_ENV
           echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
+          echo "::set-output name=pkg_config_path::$PKG_CONFIG_PATH"
+          echo "::set-output name=ld_library_path::$LD_LIBRARY_PATH"
           echo "✅ Set PKG_CONFIG_PATH, LD_LIBRARY_PATH, and PKG_CONFIG_ALLOW_CROSS for subsequent steps"
 
       - name: ARM Cross-Compilation Debug Info
@@ -191,8 +194,8 @@ jobs:
         env:
           RUSTFLAGS: "-C target-feature=-crt-static"
           PKG_CONFIG_ALLOW_CROSS: 1
-          PKG_CONFIG_PATH: ${{ env.PKG_CONFIG_PATH }}
-          LD_LIBRARY_PATH: ${{ env.LD_LIBRARY_PATH }}
+          PKG_CONFIG_PATH: ${{ steps.pkg_config_cross.outputs.pkg_config_path }}
+          LD_LIBRARY_PATH: ${{ steps.pkg_config_cross.outputs.ld_library_path }}
         run: |
           echo "🎯 Starting ARM cross-compilation for ${{ matrix.target }}"
           
@@ -244,8 +247,8 @@ jobs:
         env:
           RUSTFLAGS: "-C target-feature=-crt-static"
           PKG_CONFIG_ALLOW_CROSS: 1
-          PKG_CONFIG_PATH: ${{ env.PKG_CONFIG_PATH }}
-          LD_LIBRARY_PATH: ${{ env.LD_LIBRARY_PATH }}
+          PKG_CONFIG_PATH: ${{ steps.pkg_config_cross.outputs.pkg_config_path }}
+          LD_LIBRARY_PATH: ${{ steps.pkg_config_cross.outputs.ld_library_path }}
         run: |
           echo "🚀 Building release binary for ${{ matrix.target }}"
           
