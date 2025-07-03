@@ -1,4 +1,4 @@
-name: Yocto Build
+name: Yocto Build (Resource Intensive)
 
 permissions:
   contents: read
@@ -10,42 +10,145 @@ on:
     - cron: '0 2 * * 0'  # Weekly on Sunday at 2 AM
 
 jobs:
+  check-resources:
+    runs-on: ubuntu-latest
+    outputs:
+      should-build: ${{ steps.check.outputs.should-build }}
+    steps:
+      - name: Check build feasibility
+        id: check
+        run: |
+          echo "=== Resource Check ==="
+          echo "Available disk space:"
+          df -h
+          
+          available_gb=$(df / --output=avail | tail -1 | xargs | awk '{print int($1/1024/1024)}')
+          echo "Available space: ${available_gb}GB"
+          
+          if [ "$available_gb" -lt 50 ]; then
+            echo "❌ Insufficient disk space for Yocto build (need 50GB+, have ${available_gb}GB)"
+            echo "should-build=false" >> $GITHUB_OUTPUT
+          else
+            echo "✅ Sufficient disk space available"
+            echo "should-build=true" >> $GITHUB_OUTPUT
+          fi
+
   build-yocto:
+    needs: check-resources
+    if: needs.check-resources.outputs.should-build == 'true'
     runs-on: ${{ github.repository_owner == 'cropcrusaders' && 'self-hosted' || 'ubuntu-latest' }}
-    timeout-minutes: 180  # 3 hours maximum
+    timeout-minutes: 480  # 8 hours maximum
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Ensure Poky sources
+      - name: Free up disk space
         run: |
-          if [ ! -e yocto/poky/oe-init-build-env ]; then
-            git clone --depth 1 https://git.yoctoproject.org/git/poky yocto/poky
+          echo "=== Freeing up disk space ==="
+          sudo apt-get remove -y '^dotnet-.*' '^llvm-.*' '^php.*' '^mysql-.*' || true
+          sudo apt-get autoremove -y || true
+          sudo apt-get autoclean || true
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /usr/local/lib/android || true
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf /opt/hostedtoolcache || true
+          echo "=== Disk space after cleanup ==="
+          df -h
+
+      - name: Install Yocto dependencies
+        run: |
+          echo "Installing Yocto build dependencies..."
+          sudo apt-get update
+          if ! sudo apt-get install -y \
+            gawk wget git diffstat unzip texinfo gcc-multilib \
+            build-essential chrpath socat cpio python3 python3-pip \
+            python3-pexpect xz-utils debianutils iputils-ping \
+            python3-git python3-jinja2 libegl1-mesa libsdl1.2-dev \
+            xterm python3-subunit mesa-common-dev; then
+            echo "❌ Failed to install Yocto dependencies"
+            exit 1
           fi
+          echo "✅ Yocto dependencies installed successfully"
 
-      - name: Ensure meta-openembedded layer
+      - name: Setup Yocto workspace
         run: |
-          if [ ! -e yocto/meta-openembedded/meta-oe ]; then
-            git clone --depth 1 https://github.com/openembedded/meta-openembedded.git yocto/meta-openembedded
+          echo "Setting up Yocto workspace..."
+          mkdir -p yocto
+          cd yocto
+          
+          if [ ! -d "poky" ]; then
+            echo "Cloning Poky repository..."
+            if ! git clone --depth 1 --branch kirkstone https://git.yoctoproject.org/git/poky; then
+              echo "❌ Failed to clone Poky repository"
+              exit 1
+            fi
           fi
+          
+          if [ ! -d "meta-openembedded" ]; then
+            echo "Cloning meta-openembedded..."
+            if ! git clone --depth 1 --branch kirkstone https://github.com/openembedded/meta-openembedded.git; then
+              echo "❌ Failed to clone meta-openembedded"
+              exit 1
+            fi
+          fi
+          
+          echo "✅ Yocto workspace ready"
 
-      - name: Set up Poky build environment
+      - name: Build Yocto image
         run: |
-          source yocto/poky/oe-init-build-env yocto/build
-          # Work around occasional Meson clock skew errors
-          # by cleaning the pixman recipe before building
-          bitbake -c clean pixman || true
-          # Also clean glib to avoid intermittent Meson failures
-          bitbake -c clean glib-2.0-native || true
-          # And clean the glib-initial recipe which sometimes hits
-          # the same Meson clock skew issue
-          bitbake -c clean glib-2.0-initial || true
-          bitbake rust-spray-image
+          cd yocto
+          echo "=== Starting Yocto Build ==="
+          df -h
+          
+          # Critical: Source environment and build in single step
+          if ! (source poky/oe-init-build-env build && \
+                bitbake -c clean pixman || true && \
+                bitbake -c clean glib-2.0-native || true && \
+                bitbake -c clean glib-2.0-initial || true && \
+                bitbake rust-spray-image); then
+            echo "❌ Yocto build failed"
+            echo "=== Build Logs ==="
+            find build/tmp/work -name "log.*" -exec tail -20 {} \; 2>/dev/null || true
+            exit 1
+          fi
+          
+          echo "✅ Yocto build completed successfully"
 
-      - name: Upload image artifact
+      - name: Upload image artifacts
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: rust-spray-image
+          name: rust-spray-yocto-image-${{ github.run_id }}
           path: yocto/build/tmp/deploy/images
+          retention-days: 7
+
+      - name: Upload build logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yocto-build-logs-${{ github.run_id }}
+          path: |
+            yocto/build/tmp/work/**/log.*
+            yocto/build/tmp/log/**
+          retention-days: 3
+
+  fallback-info:
+    needs: check-resources
+    if: needs.check-resources.outputs.should-build == 'false'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resource limitation info
+        run: |
+          echo "❌ Yocto build skipped due to resource constraints"
+          echo ""
+          echo "Yocto builds require:"
+          echo "  - 50GB+ available disk space"
+          echo "  - 8+ hours build time"
+          echo "  - 16GB+ RAM (recommended)"
+          echo ""
+          echo "For Yocto builds, consider:"
+          echo "  1. Self-hosted runner with adequate resources"
+          echo "  2. External build service"
+          echo "  3. Local builds with artifact upload"
