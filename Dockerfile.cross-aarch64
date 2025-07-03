@@ -49,10 +49,13 @@ RUN git clone --depth 1 -b ${OPENCV_VERSION} https://github.com/opencv/opencv.gi
 FROM ghcr.io/cross-rs/aarch64-unknown-linux-gnu:main AS rust-build
 
 # Cross-rs images come with pre-configured Rust toolchain for the target
-# Cross-rs images come with pre-configured Rust toolchain for the target
-# The cross-rs images have Rust installed in /usr/local/cargo
-ENV PATH="/usr/local/cargo/bin:${PATH}"
-RUN which cargo && cargo --version && rustc --version
+# Cross-rs images are designed to be used with the cross tool
+# They don't necessarily have cargo available directly 
+# Install Rust toolchain for building
+RUN apt-get update && apt-get install -y curl
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+RUN cargo --version && rustc --version
 
 COPY --from=opencv-build /opt/opencv /opt/opencv
 ENV PKG_CONFIG_PATH=/opt/opencv/lib/pkgconfig

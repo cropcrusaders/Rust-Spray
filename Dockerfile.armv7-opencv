@@ -67,10 +67,21 @@ RUN mkdir -p /arm-linux-gnueabihf/lib && \
 # ------------------------------------------------------------
 FROM ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:edge AS rust-build
 
-# Cross-rs images come with pre-configured Rust toolchain for the target
-# The cross-rs images have Rust installed in /usr/local/cargo
-ENV PATH="/usr/local/cargo/bin:${PATH}"
-RUN which cargo && cargo --version && rustc --version
+# Cross-rs images are designed to be used with the cross tool
+# They don't necessarily have cargo available directly 
+# Let's check what's available and install rust if needed
+RUN apt-get update && apt-get install -y curl
+RUN which rustc || echo "rustc not found"
+RUN which cargo || echo "cargo not found"
+
+# Install Rust if not available
+RUN if ! which cargo; then \
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && \
+        . ~/.cargo/env; \
+    fi
+
+ENV PATH="/root/.cargo/bin:${PATH}"
+RUN cargo --version && rustc --version
 
 COPY --from=opencv-build /opt/opencv /opt/opencv
 ENV PKG_CONFIG_PATH=/opt/opencv/lib/pkgconfig
