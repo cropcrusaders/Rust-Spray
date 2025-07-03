@@ -404,6 +404,8 @@ cross build --target aarch64-unknown-linux-gnu --features with-rppal,picam
 cross build --target aarch64-unknown-linux-gnu --no-default-features
 ```
 
+> **Note**: Local ARM cross-compilation testing with `act` requires Docker Desktop running with Linux containers and an elevated shell (run PowerShell as Administrator) on Windows. Ensure the Docker daemon is active and accessible via `docker ps`. If Docker isn't available or cannot connect, you may skip local cross-compile tests or validate on GitHub-hosted runners.
+
 #### **ARM Build Strategies (In Order of Preference):**
 1. **🎯 Strategy 1: Full Features** - `--features raspberry-pi`
    - Includes: OpenCV + GPIO + Camera

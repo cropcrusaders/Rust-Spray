@@ -185,4 +185,43 @@ The ARM cross-compilation issue that was your main problem is now addressed with
 
 ---
 
-*Ready to push and test the improved ARM cross-compilation?*
+## 🛠️ Interpreting `cross` Error Output
+
+When a strategy fails, `cross` will emit errors indicating missing tools or libraries. Here’s how to read and debug common issues:
+
+### 1. QEMU / Emulation Errors
+- **Error**: `error: No such file or directory (os error 2)` or `qemu: exec format error`
+  - **Cause**: QEMU not set up or wrong `setup-qemu-action` version
+  - **Fix**: Ensure `docker/setup-qemu-action@v4` is before `cross build` and platforms include your targets.
+
+### 2. Missing Compiler / Linker
+- **Error**: `error: linking with `aarch64-linux-gnu-gcc` failed` or `cannot find compiler aarch64-linux-gnu-gcc`
+  - **Cause**: Cross-compilation toolchain packages not installed
+  - **Fix**: Install `gcc-aarch64-linux-gnu`, `g++-aarch64-linux-gnu`, `gcc-arm-linux-gnueabihf`, `g++-arm-linux-gnueabihf` via apt.
+
+### 3. pkg-config / Library Not Found
+- **Error**: `Package opencv4 was not found` or `pkg-config not found for target`
+  - **Cause**: `PKG_CONFIG_PATH` not pointing to ARM sysroot pkgconfig
+  - **Fix**: Export correct path (`/usr/aarch64-linux-gnu/lib/pkgconfig` or `/usr/arm-linux-gnueabihf/lib/pkgconfig`). Confirm via `echo $PKG_CONFIG_PATH`.
+
+### 4. Missing Sysroot Files
+- **Error**: `crt1.o: No such file or directory` or `cannot find crtbegin.o`
+  - **Cause**: Sysroot headers/libraries missing for target
+  - **Fix**: Install `libc6-dev-arm64-cross` or appropriate sysroot packages.
+
+### 5. OpenCV Linker Errors
+- **Error**: `undefined reference to cv::imread` or similar
+  - **Cause**: OpenCV libraries aren’t installed in sysroot for ARM
+  - **Fix**: Use a custom Docker image with OpenCV for ARM, or build OpenCV from source in CI.
+
+### 6. General Rust Build Failures
+- **Error**: `error[E0432]: unresolved import` or `failed to run custom build script`
+  - **Cause**: Feature flags or bindings missing
+  - **Fix**: Adjust feature flags (e.g., use `arm-gpio` instead of `raspberry-pi`) and ensure `default-features = false` in Cargo.toml for OpenCV.
+
+---
+
+**Tip:** For full debug logs, add `RUST_LOG=debug` and `-vv` to `cross build`:
+```bash
+cross build -vv --target ${{ matrix.target }} --features ...
+```
