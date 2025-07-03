@@ -225,3 +225,30 @@ When a strategy fails, `cross` will emit errors indicating missing tools or libr
 ```bash
 cross build -vv --target ${{ matrix.target }} --features ...
 ```
+
+---
+
+## ▶️ Start Working on Failures
+When you push, your GitHub Actions run will show exactly which strategy fails and why. Follow these steps to diagnose and fix them:
+
+1. **Open the Actions Tab** in your repository.
+2. **Select the latest CI run** and click on the `cross-compile` job.
+3. **Expand the step logs** for `💻 Set up QEMU`, `🛠️ Install cross-compilation toolchains`, and each **Strategy** section:
+   - Look for errors under **Strategy 1**, **2**, **3**, or **4**.
+   - Copy the complete error message for the failing strategy.
+4. **Identify the Error Type**:
+   - **Emulation/QEMU**: Missing or misconfigured QEMU setup.
+   - **Compiler**: Missing cross-gcc/g++ toolchain.
+   - **pkg-config**: Cannot find libraries in the cross sysroot.
+   - **Linker**: Undefined references (OpenCV symbols, etc.).
+5. **Refer to the Troubleshooting Guide** above to apply the appropriate fix:
+   - Ensure `setup-qemu-action@v4` is early in your steps.
+   - Verify `apt-get install` includes all required cross-compilers and sysroot packages.
+   - Confirm `PKG_CONFIG_PATH` is pointing to the correct target pkgconfig directory.
+   - For OpenCV, consider custom Docker images or building OpenCV in CI.
+6. **Make a targeted fix** in the workflow or `Cargo.toml`, commit and push again.
+7. **Repeat** until at least one strategy completes successfully.
+
+> **Note**: You can also rerun only the `cross-compile` job by clicking the **Re-run job** button, avoiding a full workflow re-run.
+
+---
