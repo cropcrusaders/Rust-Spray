@@ -54,9 +54,6 @@ default = []
 # Feature for host builds
 host = ["opencv"]
 
-# Computer vision features
-opencv = ["dep:opencv"]
-
 # ARM-specific features (for cross-compilation)
 with-rppal = ["rppal"]
 picam      = ["rscam"]
@@ -65,10 +62,9 @@ picam      = ["rscam"]
 arm-gpio = ["with-rppal", "picam"]                    # ARM GPIO without OpenCV
 arm-core = ["with-rppal"]                             # Basic ARM support
 arm-camera = ["picam"]                                # Camera support only
-arm-full = ["with-rppal", "picam", "opencv"]          # Full ARM with OpenCV
 
 # Convenience feature for full Raspberry Pi support
-raspberry-pi = ["with-rppal", "picam", "opencv"]
+raspberry-pi = ["with-rppal", "picam"]
 
 # ─────────────────────────────────────────────────────────────────────────────
 [package.metadata.deb]
