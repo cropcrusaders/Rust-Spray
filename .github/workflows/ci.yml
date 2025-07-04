@@ -7,7 +7,7 @@ permissions:
 
 on:
   pull_request:
-    branches: ["main"]
+    branches: [ "main" ]
   workflow_dispatch:
 
 env:
@@ -36,10 +36,8 @@ jobs:
 
   # Test on host (non-ARM) platform
   test-host:
-    name: Test on Host Platform
+    name: Test on Host Platform (with OpenCV)
     runs-on: ubuntu-latest
-    env:
-      PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -51,12 +49,7 @@ jobs:
         run: |
           echo "Installing OpenCV dependencies..."
           sudo apt-get update
-          if ! sudo apt-get install -y libopencv-dev clang libclang-dev; then
-            echo "❌ Failed to install OpenCV dependencies"
-            echo "This may cause build failures for OpenCV-dependent features"
-            exit 1
-          fi
-          echo "✅ OpenCV dependencies installed successfully"
+          sudo apt-get install -y libopencv-dev clang libclang-dev
 
       - name: Cache dependencies
         uses: actions/cache@v4
@@ -66,8 +59,6 @@ jobs:
             ~/.cargo/git
             target
           key: ci-${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ci-${{ runner.os }}-cargo-
 
       - name: Build with host features
         run: cargo build --verbose --features host
@@ -81,9 +72,23 @@ jobs:
       - name: Build documentation
         run: cargo doc --no-deps --all-features
 
+  # Build and test on host without special features
+  build-and-test-without-host:
+    name: Build and Test on Host (no-features)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Test build with no features
+        run: cargo check --no-default-features
+      - name: Run tests with no features
+        run: cargo test --no-default-features
+
   # Cross-compilation tests for ARM targets
   cross-compile:
-    name: Cross-compile for ARM
+    name: Cross-compile for ARM (no OpenCV)
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -93,14 +98,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Set up QEMU (for ARM emulation)
-        uses: docker/setup-qemu-action@v4
-        with:
-          platforms: linux/arm64, linux/arm/v7
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -112,193 +109,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
-            gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf pkg-config
-          # Enable multiarch and install OpenCV for target architecture
-          if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
-            sudo dpkg --add-architecture arm64
-            sudo apt-get update
-            sudo apt-get install -y libopencv-dev:arm64
-          else
-            sudo dpkg --add-architecture armhf
-            sudo apt-get update
-            sudo apt-get install -y libopencv-dev:armhf
-          fi
+            gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
 
       - name: Install cross
-        run: |
-          echo "Installing cross from GitHub repository..."
-          if ! cargo install cross --git https://github.com/cross-rs/cross --locked; then
-            echo "❌ Failed to install cross from git, trying from crates.io..."
-            if ! cargo install cross --locked; then
-              echo "❌ Failed to install cross from both sources"
-              exit 1
-            fi
-          fi
-          echo "✅ Cross installed successfully"
+        run: cargo install cross --git https://github.com/cross-rs/cross --locked
 
-      - name: Set up cross configuration
-        run: |
-          echo "Setting up cross configuration..."
-          if [ -f Cross.toml ]; then
-            GHCR_USER=${{ github.repository_owner }} envsubst < Cross.toml > Cross.expanded.toml
-            mv Cross.expanded.toml Cross.toml
-            echo "✅ Cross configuration updated"
-          else
-            echo "⚠️  Cross.toml not found, using default configuration"
-          fi
+      - name: Cross-compile for ARM
+        run: cross build --target ${{ matrix.target }} --verbose --features raspberry-pi
 
-      - name: Configure pkg-config for cross
-        id: pkg_config_cross
-        shell: bash
-        run: |
-          echo "🔧 Configuring pkg-config for ${{ matrix.target }}"
-          if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
-            PKG_CONFIG_PATH="/usr/lib/aarch64-linux-gnu/pkgconfig"
-            LD_LIBRARY_PATH="/usr/lib/aarch64-linux-gnu"
-          else
-            PKG_CONFIG_PATH="/usr/lib/arm-linux-gnueabihf/pkgconfig"
-            LD_LIBRARY_PATH="/usr/lib/arm-linux-gnueabihf"
-          fi
-          echo "PKG_CONFIG_PATH=${PKG_CONFIG_PATH}" >> $GITHUB_ENV
-          echo "LD_LIBRARY_PATH=${LD_LIBRARY_PATH}" >> $GITHUB_ENV
-          echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
-          echo "::set-output name=pkg_config_path::$PKG_CONFIG_PATH"
-          echo "::set-output name=ld_library_path::$LD_LIBRARY_PATH"
-          echo "✅ Set PKG_CONFIG_PATH, LD_LIBRARY_PATH, and PKG_CONFIG_ALLOW_CROSS for subsequent steps"
-
-      - name: ARM Cross-Compilation Debug Info
-        shell: bash
-        run: |
-          echo "🔍 ARM Cross-Compilation Debug Information"
-          echo "Target: ${{ matrix.target }}"
-          echo "Cross version: $(cross --version)"
-          echo "Rust version: $(rustc --version)"
-          echo "---"
-          echo "PKG_CONFIG_PATH is: $PKG_CONFIG_PATH"
-          echo "Checking for opencv4.pc in PKG_CONFIG_PATH..."
-          if [ -f "${PKG_CONFIG_PATH}/opencv4.pc" ]; then
-            echo "✅ Found opencv4.pc"
-            echo "--- pkg-config output ---"
-            pkg-config --cflags --libs opencv4
-            echo "-------------------------"
-          else
-            echo "❌ ERROR: opencv4.pc not found in ${PKG_CONFIG_PATH}"
-            echo "Listing contents of PKG_CONFIG_PATH:"
-            ls -la $PKG_CONFIG_PATH
-            echo "This is the likely cause of the build failure."
-          fi
-          echo "---"
-          echo "Testing feature combinations for ARM target..."
-
-      - name: Build with cross (Smart Multi-Stage Strategy)
-        env:
-          RUSTFLAGS: "-C target-feature=-crt-static"
-          PKG_CONFIG_ALLOW_CROSS: 1
-          PKG_CONFIG_PATH: ${{ steps.pkg_config_cross.outputs.pkg_config_path }}
-          LD_LIBRARY_PATH: ${{ steps.pkg_config_cross.outputs.ld_library_path }}
-        run: |
-          echo "🎯 Starting ARM cross-compilation for ${{ matrix.target }}"
-          
-          # Strategy 1: Full build with all features
-          echo "📋 Strategy 1: Attempting full build with OpenCV..."
-          if cross build --target ${{ matrix.target }} --features raspberry-pi; then
-            echo "✅ SUCCESS: Full ARM build with OpenCV completed"
-            echo "🎉 This is the ideal outcome - all features working!"
-            exit 0
-          fi
-          echo "⚠️  Strategy 1 failed - trying fallback approaches..."
-          
-          # Strategy 2: ARM-specific features without OpenCV
-          echo "📋 Strategy 2: Building with GPIO features only..."
-          if cross build --target ${{ matrix.target }} --features with-rppal,picam; then
-            echo "✅ SUCCESS: ARM build with GPIO features completed"
-            echo "🎯 GPIO and camera features are working - OpenCV can be added later"
-            exit 0
-          fi
-          echo "⚠️  Strategy 2 failed - trying core functionality..."
-          
-          # Strategy 3: Core functionality only
-          echo "📋 Strategy 3: Building core functionality..."
-          if cross build --target ${{ matrix.target }} --no-default-features; then
-            echo "✅ SUCCESS: Core ARM build completed"
-            echo "🔧 Core functionality works - features can be added incrementally"
-            exit 0
-          fi
-          echo "⚠️  Strategy 3 failed - trying absolute minimum..."
-          
-          # Strategy 4: Absolute minimum build
-          echo "📋 Strategy 4: Building with minimal features..."
-          if cross build --target ${{ matrix.target }} --no-default-features --features with-rppal; then
-            echo "✅ SUCCESS: Minimal ARM build completed"
-            echo "🚀 Basic ARM support is working"
-            exit 0
-          fi
-          
-          # If all strategies fail
-          echo "❌ CRITICAL: All cross-compilation strategies failed"
-          echo "This indicates a fundamental issue with the cross-compilation setup"
-          echo "Debugging information:"
-          echo "- Target: ${{ matrix.target }}"
-          echo "- Cross version: $(cross --version)"
-          echo "- Available toolchains: $(rustup show)"
-          exit 1
-
-      - name: Build release with cross (Smart Strategy)
-        env:
-          RUSTFLAGS: "-C target-feature=-crt-static"
-          PKG_CONFIG_ALLOW_CROSS: 1
-          PKG_CONFIG_PATH: ${{ steps.pkg_config_cross.outputs.pkg_config_path }}
-          LD_LIBRARY_PATH: ${{ steps.pkg_config_cross.outputs.ld_library_path }}
-        run: |
-          echo "🚀 Building release binary for ${{ matrix.target }}"
-          
-          # Try to build with the same strategy that succeeded above
-          # This mirrors the debug build logic but for release
-          if cross build --release --target ${{ matrix.target }} --features raspberry-pi; then
-            echo "✅ Release build with full features completed"
-          elif cross build --release --target ${{ matrix.target }} --features with-rppal,picam; then
-            echo "✅ Release build with GPIO features completed"
-          elif cross build --release --target ${{ matrix.target }} --no-default-features; then
-            echo "✅ Release build with core features completed"
-          elif cross build --release --target ${{ matrix.target }} --no-default-features --features with-rppal; then
-            echo "✅ Release build with minimal features completed"
-          else
-            echo "❌ All release build strategies failed"
-            exit 1
-          fi
-
-  # Integration tests with different feature combinations
-  feature-tests:
-    name: Feature Combination Tests
-    runs-on: ubuntu-latest
-    env:
-      PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig
-    strategy:
-      matrix:
-        features:
-          - ""                    # Default features
-          - "with-rppal"         # GPIO support
-          - "picam"              # Camera support
-          - "host"               # All host features
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install OpenCV dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libopencv-dev clang libclang-dev
-
-      - name: Test build with features "${{ matrix.features }}"
-        run: |
-          if [ -n "${{ matrix.features }}" ]; then
-            cargo check --features "${{ matrix.features }}"
-          else
-            cargo check
-          fi
+      - name: Cross-compile release for ARM
+        run: cross build --target ${{ matrix.target }} --release --verbose --features raspberry-pi
 
   # Security audit
   security:
@@ -317,12 +137,10 @@ jobs:
       - name: Run security audit
         run: cargo audit
 
-  # Check that the project builds on different Rust versions
+  # Check that the project builds on our MSRV
   msrv:
-    name: Minimum Supported Rust Version
+    name: MSRV Check (1.70)
     runs-on: ubuntu-latest
-    env:
-      PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -345,8 +163,8 @@ jobs:
     needs:
       - lint
       - test-host
+      - build-and-test-without-host
       - cross-compile
-      - feature-tests
       - security
       - msrv
     runs-on: ubuntu-latest
@@ -355,8 +173,8 @@ jobs:
         run: |
           if [[ "${{ needs.lint.result }}" == "success" && \
                 "${{ needs.test-host.result }}" == "success" && \
+                "${{ needs.build-and-test-without-host.result }}" == "success" && \
                 "${{ needs.cross-compile.result }}" == "success" && \
-                "${{ needs.feature-tests.result }}" == "success" && \
                 "${{ needs.security.result }}" == "success" && \
                 "${{ needs.msrv.result }}" == "success" ]]; then
             echo "✅ All CI checks passed!"
