@@ -279,7 +279,7 @@ jobs:
           - ""                    # Default features
           - "with-rppal"         # GPIO support
           - "picam"              # Camera support
-          - "raspberry-pi"       # All Pi features
+          - "host"               # All host features
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -336,7 +336,7 @@ jobs:
           sudo apt-get install -y libopencv-dev clang libclang-dev
 
       - name: Test build with MSRV
-        run: cargo check
+        run: cargo check --features host
 
   # Combined status check
   ci-success:
