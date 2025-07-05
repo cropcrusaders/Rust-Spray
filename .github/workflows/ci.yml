@@ -28,6 +28,12 @@ jobs:
         with:
           components: rustfmt, clippy
 
+      - name: Install OpenCV dependencies
+        run: |
+          echo "Installing OpenCV dependencies..."
+          sudo apt-get update
+          sudo apt-get install -y libopencv-dev clang libclang-dev
+
       - name: Check formatting
         run: cargo fmt --all -- --check
 
@@ -152,6 +158,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libopencv-dev clang libclang-dev
+
+      - name: Update lock file for MSRV
+        run: cargo update
 
       - name: Test build with MSRV
         run: cargo check --features host

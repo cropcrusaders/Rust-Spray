@@ -3,6 +3,9 @@
 //! This crate provides a complete system for detecting weeds using computer vision
 //! and controlling sprayer hardware via GPIO pins.
 
+#[cfg(feature = "picam")]
+pub mod picam;
+
 pub mod camera;
 pub mod config;
 pub mod detection;

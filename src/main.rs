@@ -3,11 +3,12 @@
 //! This application captures video frames, detects weeds using computer vision,
 //! and controls sprayer hardware via GPIO pins.
 
+use std::error::Error;
+use std::process;
+
 use clap::Parser;
 use log::{error, info, warn};
 use opencv::highgui;
-use std::process;
-use thiserror::Error;
 
 // ─── Project modules ────────────────────────────────────────────────────────
 mod camera;
@@ -23,7 +24,7 @@ use spray::{SprayController, SprayError};
 
 // ─── Error handling ─────────────────────────────────────────────────────────
 
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum AppError {
     #[error("Configuration error: {0}")]
     Config(#[from] ConfigError),

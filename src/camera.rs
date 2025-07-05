@@ -10,7 +10,7 @@ use opencv::{
 use thiserror::Error;
 
 #[cfg(feature = "picam")]
-mod picam;
+use crate::picam;
 
 #[derive(Error, Debug)]
 pub enum CameraError {
