@@ -250,6 +250,12 @@ The program opens the camera, runs the detection algorithm and pulses the spraye
 
 Rust-Spray is released under the MIT license.
 
+## Contact
+
+For all inquiries about Rust-Spray please email
+[nicholasbass@crop-crusaders.com](mailto:nicholasbass@crop-crusaders.com).
+
+
 ## Yocto Build
 
 A minimal Yocto configuration is provided in the `yocto/` directory. It builds
