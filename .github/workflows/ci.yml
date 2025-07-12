@@ -6,6 +6,8 @@ permissions:
   packages: read
 
 on:
+  push:
+    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
@@ -13,12 +15,15 @@ on:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
+  CARGO_INCREMENTAL: 0
+  RUST_LOG: debug
 
 jobs:
   # Quick format and lint check
   lint:
     name: Lint and Format Check
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -28,22 +33,44 @@ jobs:
         with:
           components: rustfmt, clippy
 
-      - name: Install OpenCV dependencies
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: lint-${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            lint-${{ runner.os }}-cargo-
+
+      - name: Install system dependencies
         run: |
-          echo "Installing OpenCV dependencies..."
           sudo apt-get update
-          sudo apt-get install -y libopencv-dev clang libclang-dev
+          sudo apt-get install -y \
+            libopencv-dev \
+            clang \
+            libclang-dev \
+            pkg-config
 
       - name: Check formatting
         run: cargo fmt --all -- --check
 
-      - name: Clippy analysis
-        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Clippy analysis (host features)
+        run: cargo clippy --all-targets --features host -- -D warnings
 
-  # Test on host (non-ARM) platform
+      - name: Clippy analysis (no features)
+        run: cargo clippy --all-targets --no-default-features -- -D warnings
+
+      - name: Clippy analysis (raspberry-pi features)
+        run: cargo clippy --all-targets --features raspberry-pi -- -D warnings
+
+  # Test on host (non-ARM) platform with OpenCV
   test-host:
     name: Test on Host Platform (with OpenCV)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -51,20 +78,26 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install OpenCV dependencies
-        run: |
-          echo "Installing OpenCV dependencies..."
-          sudo apt-get update
-          sudo apt-get install -y libopencv-dev clang libclang-dev
-
-      - name: Cache dependencies
+      - name: Cache Cargo dependencies
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ci-${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: test-host-${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            test-host-${{ runner.os }}-cargo-
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libopencv-dev \
+            clang \
+            libclang-dev \
+            pkg-config
 
       - name: Build with host features
         run: cargo build --verbose --features host
@@ -76,27 +109,45 @@ jobs:
         run: cargo check --example basic_usage --features host
 
       - name: Build documentation
-        run: cargo doc --no-deps --all-features
+        run: cargo doc --no-deps --features host
 
-  # Build and test on host without special features
-  build-and-test-without-host:
-    name: Build and Test on Host (no-features)
+  # Build and test without any features
+  test-no-features:
+    name: Test with No Features
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-      - name: Test build with no features
-        run: cargo check --no-default-features
-      - name: Run tests with no features
-        run: cargo test --no-default-features
 
-  # Cross-compilation tests for ARM targets
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: test-no-features-${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            test-no-features-${{ runner.os }}-cargo-
+
+      - name: Build with no features
+        run: cargo build --verbose --no-default-features
+
+      - name: Run tests with no features
+        run: cargo test --verbose --no-default-features
+
+  # Cross-compilation tests for ARM targets (without OpenCV)
   cross-compile:
-    name: Cross-compile for ARM (no OpenCV)
+    name: Cross-compile for ARM
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
+      fail-fast: false
       matrix:
         target:
           - aarch64-unknown-linux-gnu
@@ -110,26 +161,43 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      - name: Install cross-compilation toolchains
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: cross-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cross-${{ matrix.target }}-cargo-
+
+      - name: Install cross-compilation tools
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
-            gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
+            gcc-aarch64-linux-gnu \
+            g++-aarch64-linux-gnu \
+            gcc-arm-linux-gnueabihf \
+            g++-arm-linux-gnueabihf
 
       - name: Install cross
-        run: cargo install cross --git https://github.com/cross-rs/cross --locked
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
 
-      - name: Cross-compile for ARM
+      - name: Cross-compile for ARM (debug)
         run: cross build --target ${{ matrix.target }} --verbose --features raspberry-pi
 
-      - name: Cross-compile release for ARM
+      - name: Cross-compile for ARM (release)
         run: cross build --target ${{ matrix.target }} --release --verbose --features raspberry-pi
 
   # Security audit
   security:
     name: Security Audit
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -137,8 +205,21 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: security-${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            security-${{ runner.os }}-cargo-
+
       - name: Install cargo-audit
-        run: cargo install cargo-audit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
 
       - name: Run security audit
         run: cargo audit
@@ -147,6 +228,7 @@ jobs:
   msrv:
     name: MSRV Check (1.70)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -154,16 +236,35 @@ jobs:
       - name: Install Rust 1.70 (MSRV)
         uses: dtolnay/rust-toolchain@1.70
 
-      - name: Install OpenCV dependencies
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: msrv-${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            msrv-${{ runner.os }}-cargo-
+
+      - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libopencv-dev clang libclang-dev
+          sudo apt-get install -y \
+            libopencv-dev \
+            clang \
+            libclang-dev \
+            pkg-config
 
       - name: Update lock file for MSRV
         run: cargo update
 
-      - name: Test build with MSRV
+      - name: Test build with MSRV (host features)
         run: cargo check --features host
+
+      - name: Test build with MSRV (no features)
+        run: cargo check --no-default-features
 
   # Combined status check
   ci-success:
@@ -172,22 +273,32 @@ jobs:
     needs:
       - lint
       - test-host
-      - build-and-test-without-host
+      - test-no-features
       - cross-compile
       - security
       - msrv
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - name: Check all jobs
+      - name: Check all jobs status
         run: |
-          if [[ "${{ needs.lint.result }}" == "success" && \
-                "${{ needs.test-host.result }}" == "success" && \
-                "${{ needs.build-and-test-without-host.result }}" == "success" && \
-                "${{ needs.cross-compile.result }}" == "success" && \
-                "${{ needs.security.result }}" == "success" && \
-                "${{ needs.msrv.result }}" == "success" ]]; then
-            echo "✅ All CI checks passed!"
-          else
-            echo "❌ Some CI checks failed"
-            exit 1
-          fi
+          # Check if all required jobs succeeded
+          jobs_status=("${{ needs.lint.result }}" "${{ needs.test-host.result }}" "${{ needs.test-no-features.result }}" "${{ needs.cross-compile.result }}" "${{ needs.security.result }}" "${{ needs.msrv.result }}")
+          
+          echo "Job results:"
+          echo "  Lint: ${{ needs.lint.result }}"
+          echo "  Test Host: ${{ needs.test-host.result }}"
+          echo "  Test No Features: ${{ needs.test-no-features.result }}"
+          echo "  Cross Compile: ${{ needs.cross-compile.result }}"
+          echo "  Security: ${{ needs.security.result }}"
+          echo "  MSRV: ${{ needs.msrv.result }}"
+          
+          # Check for any failed jobs
+          for status in "${jobs_status[@]}"; do
+            if [[ "$status" != "success" ]]; then
+              echo "❌ CI pipeline failed - one or more jobs did not succeed"
+              exit 1
+            fi
+          done
+          
+          echo "✅ All CI checks passed successfully!"
