@@ -1,0 +1,76 @@
+# Dockerignore file for Rust-Spray
+# Exclude unnecessary files from Docker build context
+
+# Rust build artifacts
+target/
+**/target/
+
+# Cargo lock file (will be regenerated)
+# Cargo.lock
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git files
+.git/
+.gitignore
+
+# GitHub specific
+.github/
+
+# Trunk (code quality tool) files
+.trunk/
+
+# Chat/AI assistant files
+*.chatmode.md
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+tmp/
+temp/
+
+# Node modules (if any)
+node_modules/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Local CI scripts (not needed in container)
+scripts/
+
+# Test files
+tests/
+
+# Wiki
+wiki/
+
+# Yocto build files
+yocto/
+
+# Config examples (keep main config)
+config/
+!config/Config.toml
+
+# Examples (not needed for production build)
+examples/
+
+# Docker files themselves
+Dockerfile*
+docker/
+*.dockerfile
