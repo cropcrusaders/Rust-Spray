@@ -74,8 +74,7 @@ impl Camera {
 
         if !capture.is_opened()? {
             return Err(CameraError::Open(format!(
-                "Failed to open camera: {}",
-                device
+                "Failed to open camera: {device}"
             )));
         }
 

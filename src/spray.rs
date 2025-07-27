@@ -45,8 +45,7 @@ impl Sprayer {
         #[cfg(not(all(feature = "with-rppal", any(target_arch = "arm", target_arch = "aarch64"))))]
         {
             log::warn!(
-                "GPIO feature not enabled - sprayer on pin {} will not function",
-                pin_num
+                "GPIO feature not enabled - sprayer on pin {pin_num} will not function"
             );
             Ok(Sprayer {
                 pin_number: pin_num,

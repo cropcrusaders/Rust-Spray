@@ -136,6 +136,7 @@ pub fn gndvi(src: &Mat) -> Result<Mat> {
 }
 
 /* HSV threshold ────────────────────────────────────────────────────── */
+#[allow(clippy::too_many_arguments)]
 pub fn hsv(
     src: &Mat,
     h_min: i32,
@@ -168,6 +169,7 @@ pub fn hsv(
 }
 
 /* ExHSV (ExG mask AND HSV mask) ────────────────────────────────────── */
+#[allow(clippy::too_many_arguments)]
 pub fn exhsv(
     src: &Mat,
     exg_min: i32,
