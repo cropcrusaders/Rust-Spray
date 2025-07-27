@@ -59,12 +59,13 @@ with-rppal = ["rppal"]
 picam      = ["rscam"]
 
 # ARM feature combinations for different scenarios
-arm-gpio = ["with-rppal", "picam"]                    # ARM GPIO without OpenCV
-arm-core = ["with-rppal"]                             # Basic ARM support
-arm-camera = ["picam"]                                # Camera support only
+arm-gpio = ["with-rppal"]                          # ARM GPIO only, no camera, no OpenCV
+arm-core = ["with-rppal"]                          # Basic ARM support (same as arm-gpio)
+arm-camera = ["picam", "opencv"]                   # Camera support with OpenCV
+arm-full = ["with-rppal", "picam", "opencv"]       # Full ARM support with all features
 
 # Convenience feature for full Raspberry Pi support
-raspberry-pi = ["with-rppal", "picam"]
+raspberry-pi = ["with-rppal"]                      # Basic RPi support (GPIO only, no OpenCV)
 
 # ─────────────────────────────────────────────────────────────────────────────
 [package.metadata.deb]
