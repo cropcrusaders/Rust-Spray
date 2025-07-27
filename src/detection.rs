@@ -53,6 +53,7 @@ type AlgFnWithParams = fn(
 ) -> Result<(Mat, bool)>;
 
 /// Wrapper so plain HSV fits the parameterized function signature
+#[allow(clippy::too_many_arguments)]
 fn hsv_wrapper(
     src: &Mat,
     _exg_min: i32,
@@ -104,7 +105,7 @@ impl GreenOnBrown {
         if !simple.contains_key(default_alg) && !param.contains_key(default_alg) {
             return Err(opencv::Error::new(
                 core::StsError,
-                format!("unknown detection algorithm '{}'", default_alg),
+                format!("unknown detection algorithm '{default_alg}'"),
             ));
         }
 
@@ -160,6 +161,7 @@ impl GreenOnBrown {
     ///
     /// Consider using `detect()` with `DetectionParams` for cleaner code.
     #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::type_complexity)]
     pub fn inference(
         &self,
         frame: &Mat,
@@ -187,7 +189,7 @@ impl GreenOnBrown {
         } else {
             return Err(opencv::Error::new(
                 core::StsError,
-                format!("unknown algorithm '{}'", algorithm),
+                format!("unknown algorithm '{algorithm}'"),
             ));
         };
 

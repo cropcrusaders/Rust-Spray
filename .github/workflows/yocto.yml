@@ -36,7 +36,7 @@ jobs:
   build-yocto:
     needs: check-resources
     if: needs.check-resources.outputs.should-build == 'true'
-    runs-on: ${{ github.repository_owner == 'cropcrusaders' && 'self-hosted' || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 480  # 8 hours maximum
     steps:
       - name: Checkout repository

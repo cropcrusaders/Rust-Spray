@@ -8,17 +8,23 @@ use std::process;
 
 use clap::Parser;
 use log::{error, info, warn};
+#[cfg(feature = "opencv")]
 use opencv::highgui;
 
 // ─── Project modules ────────────────────────────────────────────────────────
+#[cfg(feature = "opencv")]
 mod camera;
 mod config;
+#[cfg(feature = "opencv")]
 mod detection;
 mod spray;
+#[cfg(feature = "opencv")]
 mod utils;
 
+#[cfg(feature = "opencv")]
 use camera::{Camera, CameraError};
 use config::{Config, ConfigError};
+#[cfg(feature = "opencv")]
 use detection::{DetectionParams, GreenOnBrown};
 use spray::{SprayController, SprayError};
 
@@ -28,8 +34,10 @@ use spray::{SprayController, SprayError};
 pub enum AppError {
     #[error("Configuration error: {0}")]
     Config(#[from] ConfigError),
+    #[cfg(feature = "opencv")]
     #[error("Camera error: {0}")]
     Camera(#[from] CameraError),
+    #[cfg(feature = "opencv")]
     #[error("Detection error: {0}")]
     Detection(#[from] opencv::Error),
     #[error("Spray controller error: {0}")]
@@ -66,20 +74,31 @@ struct Cli {
 
 fn main() {
     // Initialize the application and handle any errors gracefully
-    if let Err(e) = run() {
-        error!("Application error: {}", e);
+    #[cfg(feature = "opencv")]
+    {
+        if let Err(e) = run() {
+            error!("Application error: {}", e);
 
-        // Print the error chain
-        let mut source = e.source();
-        while let Some(err) = source {
-            error!("  Caused by: {}", err);
-            source = err.source();
+            // Print the error chain
+            let mut source = e.source();
+            while let Some(err) = source {
+                error!("  Caused by: {}", err);
+                source = err.source();
+            }
+
+            process::exit(1);
         }
-
+    }
+    
+    #[cfg(not(feature = "opencv"))]
+    {
+        error!("This application requires OpenCV support. Please compile with the 'opencv' feature.");
+        error!("Example: cargo build --features opencv");
         process::exit(1);
     }
 }
 
+#[cfg(feature = "opencv")]
 fn run() -> Result<()> {
     let cli = Cli::parse();
 
@@ -138,6 +157,7 @@ fn run() -> Result<()> {
 
 // ─── Processing loop ────────────────────────────────────────────────────────
 
+#[cfg(feature = "opencv")]
 fn process_frames(
     camera: &mut Camera,
     detector: &GreenOnBrown,

@@ -25,10 +25,10 @@ jobs:
         include:
           - target: aarch64-unknown-linux-gnu
             arch: arm64
-            features: with-rppal  # Build without OpenCV for cross-compilation
+            features: raspberry-pi  # Build with GPIO and camera support but no OpenCV for cross-compilation
           - target: armv7-unknown-linux-gnueabihf
             arch: armv7
-            features: with-rppal  # Build without OpenCV for cross-compilation
+            features: raspberry-pi  # Build with GPIO and camera support but no OpenCV for cross-compilation
     
     # Continue on error for known OpenCV cross-compilation issues
     continue-on-error: ${{ contains(matrix.target, 'arm') }}

@@ -3,14 +3,14 @@
 //! This module provides control for up to 4 sprayer outputs via GPIO pins.
 //! It's designed to work with Raspberry Pi GPIO using the rppal crate.
 
-#[cfg(feature = "with-rppal")]
+#[cfg(all(feature = "with-rppal", any(target_arch = "arm", target_arch = "aarch64")))]
 use rppal::gpio::{Gpio, OutputPin};
 use std::time::Duration;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum SprayError {
-    #[cfg(feature = "with-rppal")]
+    #[cfg(all(feature = "with-rppal", any(target_arch = "arm", target_arch = "aarch64")))]
     #[error("GPIO error: {0}")]
     Gpio(#[from] rppal::gpio::Error),
     #[error("Invalid sprayer index: {0} (valid range: 0-3)")]
@@ -21,9 +21,9 @@ pub enum SprayError {
 
 /// Individual sprayer control
 pub struct Sprayer {
-    #[cfg(feature = "with-rppal")]
+    #[cfg(all(feature = "with-rppal", any(target_arch = "arm", target_arch = "aarch64")))]
     pin: OutputPin,
-    #[cfg(not(feature = "with-rppal"))]
+    #[cfg(not(all(feature = "with-rppal", any(target_arch = "arm", target_arch = "aarch64"))))]
     pin_number: u8,
 }
 
@@ -36,17 +36,16 @@ impl Sprayer {
     /// # Returns
     /// * `Result<Self, SprayError>` - New sprayer instance or error
     pub fn new(pin_num: u8) -> Result<Self, SprayError> {
-        #[cfg(feature = "with-rppal")]
+        #[cfg(all(feature = "with-rppal", any(target_arch = "arm", target_arch = "aarch64")))]
         {
             let gpio = Gpio::new()?;
             let pin = gpio.get(pin_num)?.into_output();
             Ok(Sprayer { pin })
         }
-        #[cfg(not(feature = "with-rppal"))]
+        #[cfg(not(all(feature = "with-rppal", any(target_arch = "arm", target_arch = "aarch64"))))]
         {
             log::warn!(
-                "GPIO feature not enabled - sprayer on pin {} will not function",
-                pin_num
+                "GPIO feature not enabled - sprayer on pin {pin_num} will not function"
             );
             Ok(Sprayer {
                 pin_number: pin_num,
@@ -56,11 +55,11 @@ impl Sprayer {
 
     /// Activate the sprayer (turn on)
     pub fn activate(&mut self) {
-        #[cfg(feature = "with-rppal")]
+        #[cfg(all(feature = "with-rppal", any(target_arch = "arm", target_arch = "aarch64")))]
         {
             self.pin.set_high();
         }
-        #[cfg(not(feature = "with-rppal"))]
+        #[cfg(not(all(feature = "with-rppal", any(target_arch = "arm", target_arch = "aarch64"))))]
         {
             log::info!("Mock: Activating sprayer on pin {}", self.pin_number);
         }
@@ -68,11 +67,11 @@ impl Sprayer {
 
     /// Deactivate the sprayer (turn off)
     pub fn deactivate(&mut self) {
-        #[cfg(feature = "with-rppal")]
+        #[cfg(all(feature = "with-rppal", any(target_arch = "arm", target_arch = "aarch64")))]
         {
             self.pin.set_low();
         }
-        #[cfg(not(feature = "with-rppal"))]
+        #[cfg(not(all(feature = "with-rppal", any(target_arch = "arm", target_arch = "aarch64"))))]
         {
             log::info!("Mock: Deactivating sprayer on pin {}", self.pin_number);
         }
