@@ -147,7 +147,7 @@ pub fn hsv(
     invert: bool,
 ) -> Result<(Mat, bool)> {
     let mut hsv = Mat::default();
-    imgproc::cvt_color(src, &mut hsv, imgproc::COLOR_BGR2HSV, 0, core::AlgorithmHint::ALGO_HINT_DEFAULT)?;
+    imgproc::cvt_color(src, &mut hsv, imgproc::COLOR_BGR2HSV, 0)?;
 
     let lower = Scalar::new(h_min as f64, s_min as f64, v_min as f64, 0.0);
     let upper = Scalar::new(h_max as f64, s_max as f64, v_max as f64, 0.0);
