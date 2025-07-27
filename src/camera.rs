@@ -9,7 +9,7 @@ use opencv::{
 };
 use thiserror::Error;
 
-#[cfg(feature = "picam")]
+#[cfg(all(feature = "picam", any(target_arch = "arm", target_arch = "aarch64")))]
 use crate::picam;
 
 #[derive(Error, Debug)]
@@ -27,7 +27,7 @@ pub enum CameraError {
 /// Camera backend enumeration
 pub enum CameraBackend {
     OpenCv(VideoCapture),
-    #[cfg(feature = "picam")]
+    #[cfg(all(feature = "picam", any(target_arch = "arm", target_arch = "aarch64")))]
     Pi(picam::Picam),
 }
 
@@ -49,7 +49,7 @@ impl Camera {
     /// * `Result<Self, CameraError>` - New camera instance or error
     pub fn new(device: &str, width: u32, height: u32, use_rpi: bool) -> Result<Self, CameraError> {
         if use_rpi {
-            #[cfg(feature = "picam")]
+            #[cfg(all(feature = "picam", any(target_arch = "arm", target_arch = "aarch64")))]
             {
                 let cam = picam::Picam::new(device, width, height)
                     .map_err(|e| CameraError::Open(format!("Pi camera: {}", e)))?;
@@ -57,7 +57,7 @@ impl Camera {
                     backend: CameraBackend::Pi(cam),
                 });
             }
-            #[cfg(not(feature = "picam"))]
+            #[cfg(not(all(feature = "picam", any(target_arch = "arm", target_arch = "aarch64"))))]
             {
                 return Err(CameraError::FeatureNotAvailable(
                     "picam feature not enabled".to_string(),
@@ -104,7 +104,7 @@ impl Camera {
                 }
                 Ok(frame)
             }
-            #[cfg(feature = "picam")]
+            #[cfg(all(feature = "picam", any(target_arch = "arm", target_arch = "aarch64")))]
             CameraBackend::Pi(cam) => cam
                 .capture()
                 .map_err(|e| CameraError::Open(format!("Pi camera capture: {}", e))),
@@ -127,7 +127,7 @@ impl Camera {
                     None
                 }
             }
-            #[cfg(feature = "picam")]
+            #[cfg(all(feature = "picam", any(target_arch = "arm", target_arch = "aarch64")))]
             CameraBackend::Pi(_) => None, // Could be implemented if picam module supports it
         }
     }

@@ -1,15 +1,24 @@
+//! Camera support for Raspberry Pi
+//!
+//! This module provides camera capture using the V4L2 interface
+//! via the rscam crate for Raspberry Pi cameras.
+
+#[cfg(all(feature = "opencv", feature = "picam"))]
 use opencv::{
     core::{self, Vector},
     imgcodecs,
     prelude::*,
 };
+#[cfg(all(feature = "picam", any(target_arch = "arm", target_arch = "aarch64")))]
 use rscam::{Camera as PiCamera, Config as PiConfig};
 use std::error::Error;
 
+#[cfg(all(feature = "picam", any(target_arch = "arm", target_arch = "aarch64")))]
 pub struct Picam {
     camera: PiCamera,
 }
 
+#[cfg(all(feature = "picam", any(target_arch = "arm", target_arch = "aarch64")))]
 impl Picam {
     pub fn new(device: &str, width: u32, height: u32) -> Result<Self, Box<dyn Error>> {
         let mut cam = PiCamera::new(device)?;

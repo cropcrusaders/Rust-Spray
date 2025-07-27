@@ -42,7 +42,7 @@ thiserror  = "1.0"
 [target.'cfg(any(target_arch = "arm", target_arch = "aarch64"))'.dependencies]
 rppal = { version = "0.15", optional = true }
 
-# Raspberry Pi camera (V4L2)
+# Raspberry Pi camera (V4L2) - only available on ARM platforms
 rscam = { version = "0.5", optional = true }
 
 # ─────────────────────────────────────────────────────────────────────────────
