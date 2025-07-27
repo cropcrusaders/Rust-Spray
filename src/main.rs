@@ -14,12 +14,16 @@ use opencv::highgui;
 mod camera;
 mod config;
 mod detection;
+mod gps;
+mod logging;
 mod spray;
 mod utils;
 
 use camera::{Camera, CameraError};
 use config::{Config, ConfigError};
 use detection::{DetectionParams, GreenOnBrown};
+use gps::GpsController;
+use logging::{WeedDetectionLogger, DetectionInfo, ActionTaken};
 use spray::{SprayController, SprayError};
 
 // ─── Error handling ─────────────────────────────────────────────────────────
@@ -34,6 +38,10 @@ pub enum AppError {
     Detection(#[from] opencv::Error),
     #[error("Spray controller error: {0}")]
     Spray(#[from] SprayError),
+    #[error("GPS error: {0}")]
+    Gps(#[from] gps::GpsError),
+    #[error("Logging error: {0}")]
+    Logging(#[from] logging::LoggingError),
     #[error("Application error: {0}")]
     General(String),
 }
@@ -60,6 +68,14 @@ struct Cli {
     /// Enable verbose logging
     #[arg(short, long)]
     verbose: bool,
+
+    /// Enable weed locator mode (logging only, no spraying)
+    #[arg(long)]
+    locator_mode: bool,
+
+    /// Override output file for detections
+    #[arg(long)]
+    output_file: Option<String>,
 }
 
 // ─── Main function ──────────────────────────────────────────────────────────
@@ -90,8 +106,20 @@ fn run() -> Result<()> {
     info!("Starting Rust-Spray v{}", env!("CARGO_PKG_VERSION"));
 
     // 1. Load configuration
-    let config = Config::load(&cli.config)?;
+    let mut config = Config::load(&cli.config)?;
     info!("Configuration loaded from {}", cli.config);
+
+    // Override spray mode if locator_mode is enabled
+    if cli.locator_mode {
+        config.spray.enabled = false;
+        info!("Locator mode enabled - spraying disabled");
+    }
+
+    // Override output file if specified
+    if let Some(output_file) = &cli.output_file {
+        config.logging.output_file = output_file.clone();
+        info!("Output file overridden to: {}", output_file);
+    }
 
     // 2. Initialize camera
     let mut camera = Camera::new(
@@ -113,12 +141,33 @@ fn run() -> Result<()> {
 
     // 4. Initialize spray controller
     let mut spray_controller = SprayController::new(config.spray.pins)?;
-    info!(
-        "Spray controller ready: {} sprayers",
-        spray_controller.sprayer_count()
-    );
+    if config.spray.enabled {
+        info!(
+            "Spray controller ready: {} sprayers",
+            spray_controller.sprayer_count()
+        );
+    } else {
+        info!("Spray controller initialized but spraying disabled");
+    }
 
-    // 5. Optional display window
+    // 5. Initialize GPS controller
+    let mut gps_controller = if config.gps.enabled {
+        info!("GPS enabled - using coordinates from GPS");
+        GpsController::new_mock(config.gps.mock_latitude, config.gps.mock_longitude)
+    } else {
+        info!("GPS disabled - using mock coordinates");
+        GpsController::new_default()
+    };
+
+    // 6. Initialize data logger
+    let mut logger = WeedDetectionLogger::new(config.logging.to_logging_config())?;
+    if logger.is_enabled() {
+        info!("Weed detection logging enabled");
+    } else {
+        info!("Weed detection logging disabled");
+    }
+
+    // 7. Optional display window
     if cli.show_display {
         match highgui::named_window("Rust-Spray Detection", highgui::WINDOW_AUTOSIZE) {
             Ok(_) => info!("Display window created"),
@@ -126,11 +175,13 @@ fn run() -> Result<()> {
         }
     }
 
-    // 6. Main processing loop
+    // 8. Main processing loop
     process_frames(
         &mut camera,
         &detector,
         &mut spray_controller,
+        &mut gps_controller,
+        &mut logger,
         &config,
         cli.show_display,
     )
@@ -142,10 +193,18 @@ fn process_frames(
     camera: &mut Camera,
     detector: &GreenOnBrown,
     spray_controller: &mut SprayController,
+    gps_controller: &mut GpsController,
+    logger: &mut WeedDetectionLogger,
     config: &Config,
     show_display: bool,
 ) -> Result<()> {
     info!("Starting main processing loop");
+    
+    if config.spray.enabled {
+        info!("Mode: Spray and Log");
+    } else {
+        info!("Mode: Open Weed Locator (Log Only)");
+    }
 
     // Create detection parameters from config
     let detection_params = DetectionParams {
@@ -180,6 +239,19 @@ fn process_frames(
 
         frame_count += 1;
 
+        // Get current GPS location (if enabled)
+        let current_location = if config.gps.enabled || logger.is_enabled() {
+            match gps_controller.get_location() {
+                Ok(loc) => Some(loc),
+                Err(e) => {
+                    warn!("GPS read failed: {}", e);
+                    None
+                }
+            }
+        } else {
+            None
+        };
+
         // Run detection
         let detection_result = detector.detect(&frame, &detection_params, show_display, "WEED")?;
         let weed_count = detection_result.centers.len();
@@ -187,9 +259,42 @@ fn process_frames(
         if weed_count > 0 {
             info!("Detected {} weeds in frame {}", weed_count, frame_count);
 
-            // Activate sprayers
-            spray_controller.pulse_all(spray_duration);
-            info!("Sprayed for {}ms", config.spray.activation_duration_ms);
+            // Process each detected weed
+            for (i, center) in detection_result.centers.iter().enumerate() {
+                let bounding_box = if i < detection_result.bounding_boxes.len() {
+                    detection_result.bounding_boxes[i]
+                } else {
+                    [center[0] - 10, center[1] - 10, 20, 20] // Default box if missing
+                };
+
+                let detection_info = DetectionInfo {
+                    algorithm: config.detection.algorithm.clone(),
+                    center_x: center[0],
+                    center_y: center[1],
+                    bounding_box,
+                    area: config.detection.min_area, // Could calculate actual area from contours
+                    confidence: None, // Could be added to detection algorithms
+                    frame_number: frame_count,
+                };
+
+                let action_taken = if config.spray.enabled {
+                    // Activate sprayers
+                    spray_controller.pulse_all(spray_duration);
+                    info!("Sprayed for {}ms", config.spray.activation_duration_ms);
+                    
+                    ActionTaken::SprayActivated {
+                        duration_ms: config.spray.activation_duration_ms,
+                        sprayers: config.spray.pins.to_vec(),
+                    }
+                } else {
+                    ActionTaken::LoggedOnly
+                };
+
+                // Log the detection
+                if let Err(e) = logger.log_detection(current_location.clone(), detection_info, action_taken) {
+                    error!("Failed to log detection: {}", e);
+                }
+            }
         }
 
         // Optional display
@@ -215,10 +320,20 @@ fn process_frames(
         if frame_count % 100 == 0 {
             let elapsed = start_time.elapsed();
             let fps = frame_count as f64 / elapsed.as_secs_f64();
-            info!("Processed {} frames at {:.1} FPS", frame_count, fps);
+            info!(
+                "Processed {} frames at {:.1} FPS, logged {} detections",
+                frame_count, fps, logger.event_count()
+            );
         }
     }
 
-    info!("Processing completed. Total frames: {}", frame_count);
+    // Final flush of logger
+    logger.flush()?;
+
+    info!(
+        "Processing completed. Total frames: {}, Total detections: {}",
+        frame_count,
+        logger.event_count()
+    );
     Ok(())
 }

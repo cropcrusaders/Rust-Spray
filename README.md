@@ -1,6 +1,10 @@
 # Rust-Spray
 
-Rust-Spray is a small example project that uses a camera to detect weeds and pulse up to four sprayer outputs via GPIO pins. It targets Linux boards such as the Raspberry Pi. The detection pipeline is implemented with OpenCV in Rust.
+Rust-Spray is a camera-based precision agriculture system that can operate in two modes:
+1. **Precision Spraying**: Detect weeds and activate sprayers immediately
+2. **Open Weed Locator**: Detect and log weed locations for mapping and analysis
+
+The detection pipeline is implemented with OpenCV in Rust and targets Linux boards such as the Raspberry Pi.
 
 ## Beginner Quickstart
 
@@ -53,11 +57,16 @@ Rust-Spray is a small example project that uses a camera to detect weeds and pul
 
 ## Features
 
-- Capture frames from a USB or Raspberry Pi camera.
-- Weed detection using ExG or HSV colour thresholds.
-- Control four GPIO-driven sprayers via rppal.
-- Configuration via `config/config.toml`.
-- Optional display window for debugging.
+- **Dual Operation Modes:**
+  - **Precision Spraying**: Real-time weed detection with immediate sprayer activation
+  - **Open Weed Locator**: Detection and GPS logging for mapping and scouting
+- **Computer Vision**: Multiple detection algorithms (ExG, HSV, ExGR, etc.)
+- **Camera Support**: USB cameras and Raspberry Pi camera module
+- **GPS Integration**: Location tracking for weed mapping (with mock GPS fallback)
+- **Data Logging**: Export detection data in JSON/CSV formats for GIS analysis
+- **Hardware Control**: Four GPIO-driven sprayers via rppal
+- **Flexible Configuration**: Comprehensive TOML-based configuration
+- **Real-time Display**: Optional debug window showing detections
 
 ## Building
 
@@ -240,11 +249,66 @@ activation_duration_ms = 200
 
 ## Running
 
+### Precision Spraying Mode (Default)
 ```bash
 sudo ./target/release/rust-spray --config config/config.toml --show-display
 ```
 
-The program opens the camera, runs the detection algorithm and pulses the sprayers whenever weeds are detected. Use `--show-display` to view the annotated video stream.
+### Open Weed Locator Mode (Logging Only)
+```bash
+sudo ./target/release/rust-spray --config config/config.toml --locator-mode --show-display
+```
+
+Or configure logging-only mode in the config file by setting `spray.enabled = false`.
+
+### Command Line Options
+- `--config`: Path to configuration file (default: `config/config.toml`)
+- `--show-display`: Show the annotated video stream
+- `--locator-mode`: Enable weed locator mode (logging only, no spraying)
+- `--output-file`: Override output file for detection logs
+- `--verbose`: Enable verbose logging
+
+### Operation Modes
+
+**Precision Spraying Mode:**
+- Detects weeds using computer vision
+- Immediately activates sprayers when weeds are found
+- Logs detection events with GPS coordinates (if enabled)
+
+**Open Weed Locator Mode:**
+- Detects weeds but does not activate sprayers
+- Logs all detections with GPS coordinates and timestamps
+- Exports data in JSON/CSV format for mapping software
+- Ideal for scouting and creating weed maps
+
+## Examples
+
+### Basic Usage
+```bash
+cargo run --example basic_usage
+```
+
+### Open Weed Locator Demo
+```bash
+cargo run --example open_weed_locator
+```
+
+This example demonstrates the weed locator functionality by simulating weed detections with GPS coordinates and logging them to files. The generated JSON/CSV files can be imported into GIS software for mapping.
+
+## Data Export
+
+The system can export weed detection data in multiple formats:
+
+- **JSON**: Detailed structured data with all detection metadata
+- **CSV**: Spreadsheet-compatible format for analysis
+- **Both**: Generate both formats simultaneously
+
+Data includes:
+- GPS coordinates (latitude, longitude, altitude)
+- Detection timestamp
+- Image coordinates and bounding boxes
+- Detection algorithm and confidence
+- Action taken (spray/log only)
 
 ## License
 

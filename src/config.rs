@@ -43,6 +43,14 @@ pub struct SprayConfig {
     pub pins: [u8; 4],
     /// Sprayer activation time in **milliseconds**
     pub activation_duration_ms: u32,
+    /// Enable/disable spraying (false for logging-only mode)
+    #[serde(default = "default_spray_enabled")]
+    pub enabled: bool,
+}
+
+/// Default value for spray enabled
+fn default_spray_enabled() -> bool {
+    true
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -50,6 +58,70 @@ pub struct Config {
     pub camera: CameraConfig,
     pub detection: DetectionConfig,
     pub spray: SprayConfig,
+    /// GPS configuration
+    #[serde(default)]
+    pub gps: GpsConfig,
+    /// Data logging configuration
+    #[serde(default)]
+    pub logging: LoggingConfigToml,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct GpsConfig {
+    /// Enable GPS tracking
+    #[serde(default)]
+    pub enabled: bool,
+    /// Base latitude for mock GPS (when hardware not available)
+    #[serde(default = "default_latitude")]
+    pub mock_latitude: f64,
+    /// Base longitude for mock GPS (when hardware not available)
+    #[serde(default = "default_longitude")]
+    pub mock_longitude: f64,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct LoggingConfigToml {
+    /// Enable data logging
+    #[serde(default = "default_logging_enabled")]
+    pub enabled: bool,
+    /// Output file prefix (extensions added automatically)
+    #[serde(default = "default_output_file")]
+    pub output_file: String,
+    /// Output format: "json", "csv", or "both"
+    #[serde(default = "default_format")]
+    pub format: String,
+    /// Auto-flush after each write
+    #[serde(default = "default_auto_flush")]
+    pub auto_flush: bool,
+}
+
+// Default value functions
+fn default_latitude() -> f64 { 42.0 }
+fn default_longitude() -> f64 { -93.5 }
+fn default_logging_enabled() -> bool { true }
+fn default_output_file() -> String { "weed_detections".to_string() }
+fn default_format() -> String { "json".to_string() }
+fn default_auto_flush() -> bool { true }
+
+impl Default for GpsConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false, // GPS disabled by default
+            mock_latitude: default_latitude(),
+            mock_longitude: default_longitude(),
+        }
+    }
+}
+
+impl Default for LoggingConfigToml {
+    fn default() -> Self {
+        Self {
+            enabled: default_logging_enabled(),
+            output_file: default_output_file(),
+            format: default_format(),
+            auto_flush: default_auto_flush(),
+        }
+    }
 }
 
 impl Config {
@@ -100,5 +172,26 @@ impl Config {
         }
 
         Ok(())
+    }
+}
+
+impl LoggingConfigToml {
+    /// Convert to the logging module's LoggingConfig
+    pub fn to_logging_config(&self) -> crate::logging::LoggingConfig {
+        use crate::logging::{LoggingConfig, LogFormat};
+        
+        let format = match self.format.as_str() {
+            "csv" => LogFormat::Csv,
+            "both" => LogFormat::Both,
+            _ => LogFormat::Json, // Default to JSON
+        };
+
+        LoggingConfig {
+            enabled: self.enabled,
+            output_file: self.output_file.clone(),
+            format,
+            buffer_size: 1024,
+            auto_flush: self.auto_flush,
+        }
     }
 }

@@ -42,3 +42,25 @@ pins = [23, 24, 25, 26]
 # Sprayer activation time in milliseconds
 # Longer duration (e.g., 200ms) ensures sufficient spray
 activation_duration_ms = 200
+# Enable spraying (set to false for open weed locator mode)
+enabled = true
+
+# GPS settings for location tracking
+[gps]
+# Enable GPS tracking (set to true if GPS hardware available)
+enabled = false
+# Mock GPS coordinates (used when GPS hardware not available or for testing)
+# These coordinates represent a field location (latitude, longitude)
+mock_latitude = 42.0314  # Example: Iowa, USA
+mock_longitude = -93.5854
+
+# Data logging settings for weed detection events
+[logging]
+# Enable logging of detection events
+enabled = true
+# Output file prefix (extensions .json/.csv added automatically)
+output_file = "weed_detections"
+# Output format: "json", "csv", or "both"
+format = "json"
+# Auto-flush after each detection (recommended for real-time use)
+auto_flush = true

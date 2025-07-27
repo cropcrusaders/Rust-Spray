@@ -9,6 +9,8 @@ pub mod picam;
 pub mod camera;
 pub mod config;
 pub mod detection;
+pub mod gps;
+pub mod logging;
 pub mod spray;
 pub mod utils;
 
@@ -16,4 +18,6 @@ pub mod utils;
 pub use camera::{Camera, CameraError};
 pub use config::{Config, ConfigError};
 pub use detection::{DetectionParams, DetectionResult, GreenOnBrown};
+pub use gps::{GpsController, GpsCoordinate};
+pub use logging::{WeedDetectionLogger, WeedDetectionEvent, LoggingConfig, LogFormat};
 pub use spray::{SprayController, SprayError};
