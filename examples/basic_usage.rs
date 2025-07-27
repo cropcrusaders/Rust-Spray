@@ -3,12 +3,28 @@
 //! This example demonstrates how to use the Rust-Spray library components
 //! programmatically instead of through the main application.
 
+#[cfg(feature = "opencv")]
 use rustspray::{Camera, Config, DetectionParams, GreenOnBrown, SprayController};
+#[cfg(not(feature = "opencv"))]
+use rustspray::{Config, SprayController};
 use std::time::Duration;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
 
+    #[cfg(feature = "opencv")]
+    {
+        run_with_opencv()
+    }
+    
+    #[cfg(not(feature = "opencv"))]
+    {
+        run_without_opencv()
+    }
+}
+
+#[cfg(feature = "opencv")]
+fn run_with_opencv() -> Result<(), Box<dyn std::error::Error>> {
     // Load configuration
     let config = Config::load("config/config.toml")?;
     println!("Loaded configuration");
@@ -76,5 +92,54 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     println!("Example completed");
+    Ok(())
+}
+
+#[cfg(not(feature = "opencv"))]
+fn run_without_opencv() -> Result<(), Box<dyn std::error::Error>> {
+    println!("OpenCV feature not enabled - running basic configuration test");
+    
+    // Load configuration to test basic functionality
+    let config = Config::load("config/config.toml").unwrap_or_else(|_| {
+        println!("No config file found, using default configuration test");
+        // Create a default config for testing
+        return rustspray::Config {
+            camera: rustspray::config::CameraConfig {
+                device: "0".to_string(),
+                resolution_width: 640,
+                resolution_height: 480,
+                use_rpi_cam: false,
+            },
+            detection: rustspray::config::DetectionConfig {
+                algorithm: "ExG".to_string(),
+                exg_min: 25,
+                exg_max: 255,
+                hue_min: 60,
+                hue_max: 80,
+                brightness_min: 60,
+                brightness_max: 255,
+                saturation_min: 50,
+                saturation_max: 255,
+                min_area: 500.0,
+                invert_hue: false,
+            },
+            spray: rustspray::config::SprayConfig {
+                pins: [18, 19, 20, 21],
+                activation_duration_ms: 500,
+            },
+        };
+    });
+
+    println!("Configuration loaded (camera: {})", config.camera.device);
+
+    // Test spray controller (without GPIO it will be a mock)
+    let mut spray_controller = SprayController::new(config.spray.pins)?;
+    println!("Mock spray controller initialized with {} sprayers", spray_controller.sprayer_count());
+
+    // Simulate some spray activity
+    spray_controller.pulse_all(Duration::from_millis(100));
+    println!("Mock spray test completed");
+
+    println!("Example completed (without OpenCV)");
     Ok(())
 }
