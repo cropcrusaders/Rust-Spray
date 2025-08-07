@@ -271,3 +271,11 @@ bitbake rust-spray-image
 ```
 
 See `yocto/README.md` for more details.
+
+## Help
+
+- 📋 GitHub Issues: Bug reports and feature requests
+- 💬 Discussions: Community Q&A and project discussions
+- 🌐 Discord: Join our community for real-time chat and support
+- 📧 Email Support: nicholasbass@crop-crusaders.com (security issues)
+- 📚 Documentation: Comprehensive guides in /docs directory
