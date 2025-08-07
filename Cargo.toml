@@ -69,7 +69,7 @@ raspberry-pi = ["with-rppal"]                      # Basic RPi support (GPIO onl
 
 # ─────────────────────────────────────────────────────────────────────────────
 [package.metadata.deb]
-maintainer = "Crop Crusaders <dev@cropcrusaders.com>"
+maintainer = "Nicholas Bass <nicholasbass@crop-crusaders.com>"
 license-file = ["LICENSE"]
 depends = "libc6"
 assets = [
