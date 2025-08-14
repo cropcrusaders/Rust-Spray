@@ -200,6 +200,9 @@ install it on the Pi with:
 sudo dpkg -i rustspray_*_arm64.deb
 ```
 
+### Yocto Build
+
+See [docs/yocto.md](docs/yocto.md) for steps to build Rust-Spray with the Yocto Project.
 
 ## Configuration
 
