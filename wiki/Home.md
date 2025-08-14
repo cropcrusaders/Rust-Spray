@@ -8,6 +8,7 @@ installation, hardware wiring, and operational guidance.
 
 - [Installation Guide](Installation.md)
 - [Wiring and Hardware](Wiring.md)
+- [Troubleshooting](Troubleshooting.md)
 
 ## Overview
 
