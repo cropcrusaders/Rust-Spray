@@ -1,88 +1,36 @@
 [package]
-name        = "rustspray"
-version     = "0.1.0"
-edition     = "2021"
-license     = "MIT"
-description = "A Rust-based camera-and-sprayer system for precision weed control in agriculture"
-homepage    = "https://github.com/cropcrusaders/Rust-Spray"
-repository  = "https://github.com/cropcrusaders/Rust-Spray"
-readme      = "README.md"
-keywords    = ["agriculture", "precision-farming", "weed-control", "rust", "opencv"]
-categories  = ["hardware", "embedded", "science", "image-processing"]
+name = "rustspray"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+readme = "README.md"
 
-# Workspace settings
-[workspace]
-members = ["xtask"]
-
-# ─────────────────────────────────────────────────────────────────────────────
-[[example]]
-name = "basic_usage"
-path = "examples/basic_usage.rs"
-
-# ─────────────────────────────────────────────────────────────────────────────
 [dependencies]
+bytemuck = { version = "1.15", features = ["extern_crate_alloc"] }
+crossbeam = "0.8"
 
-# OpenCV bindings (disable defaults, enable only needed modules)
-opencv = { version = "0.94.4", default-features = false, features = [
-  "clang-runtime",
-  "highgui",
-  "imgproc",
-  "imgcodecs",
-  "videoio",
-  "objdetect"
-], optional = true }
-
-# Configuration loading
-serde = { version = "1.0", features = ["derive"] }
-toml  = "0.8"
-
-# CLI, logging, error handling
-clap       = { version = "4.5", features = ["derive"] }
-log        = "0.4"
-env_logger = "0.11"
-thiserror  = "1.0"
-
-# Raspberry Pi GPIO support (enabled only on ARM platforms)
 [target.'cfg(any(target_arch = "arm", target_arch = "aarch64"))'.dependencies]
-rppal = { version = "0.15", optional = true }
+rppal = { version = "0.17", optional = true }
 
-# Raspberry Pi camera (V4L2) - only available on ARM platforms
-rscam = { version = "0.5", optional = true }
+[dependencies.nokhwa]
+version = "0.10"
+optional = true
+default-features = false
+features = ["input-v4l"]
 
-# ─────────────────────────────────────────────────────────────────────────────
+[dependencies.gstreamer]
+version = "0.21"
+optional = true
+default-features = false
+features = ["v1_20"]
+
 [features]
-
 default = []
+rpi = ["rppal"]
+camera-gstreamer = ["gstreamer"]
+camera-nokhwa = ["nokhwa"]
 
-opencv = ["dep:opencv"]
-
-# Feature for host builds enabling OpenCV
-host = ["opencv"]
-
-# ARM-specific features (for cross-compilation)
-with-rppal = ["rppal"]
-picam      = ["rscam"]
-
-# ARM feature combinations for different scenarios
-arm-gpio = ["with-rppal"]                          # ARM GPIO only, no camera, no OpenCV
-arm-core = ["with-rppal"]                          # Basic ARM support (same as arm-gpio)
-arm-camera = ["picam", "opencv"]                   # Camera support with OpenCV
-arm-full = ["with-rppal", "picam", "opencv"]       # Full ARM support with all features
-
-# Convenience feature for full Raspberry Pi support
-raspberry-pi = ["with-rppal"]                      # Basic RPi support (GPIO only, no OpenCV)
-
-# ─────────────────────────────────────────────────────────────────────────────
-[dev-dependencies]
-cross = { git = "https://github.com/cross-rs/cross" }
-
-# ─────────────────────────────────────────────────────────────────────────────
-[package.metadata.deb]
-maintainer = "Crop Crusaders <dev@cropcrusaders.com>"
-license-file = ["LICENSE"]
-depends = "libc6"
-assets = [
-  ["target/aarch64-unknown-linux-gnu/release/rustspray", "usr/bin/", "755"],
-  ["config/Config.toml", "etc/rustspray/config.toml", "644"],
-]
+[[example]]
+name = "four_lane"
+path = "examples/four_lane.rs"
 
