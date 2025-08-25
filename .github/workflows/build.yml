@@ -1,182 +1,37 @@
-name: Build and Release
-
-permissions:
-  contents: write
-  packages: read
+name: Build
 
 on:
   push:
-    branches: ["main"]
   pull_request:
-    branches: ["main"]
-  release:
-    types: [published]
-  workflow_dispatch:
-
-env:
-  CARGO_TERM_COLOR: always
+  schedule:
+    - cron: '0 3 * * *'
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
-      fail-fast: false
       matrix:
-        include:
-          - target: aarch64-unknown-linux-gnu
-            arch: arm64
-            features: raspberry-pi  # Build with GPIO and camera support but no OpenCV for cross-compilation
-          - target: armv7-unknown-linux-gnueabihf
-            arch: armv7
-            features: raspberry-pi  # Build with GPIO and camera support but no OpenCV for cross-compilation
-    
-    # Continue on error for known OpenCV cross-compilation issues
-    continue-on-error: ${{ contains(matrix.target, 'arm') }}
-
+        target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu, armv7-unknown-linux-gnueabihf, aarch64-unknown-linux-musl]
+    env:
+      USE_TOOLCHAIN: ${{ env.USE_TOOLCHAIN }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
         with:
-          targets: ${{ matrix.target }}
-
-      - name: Install cross CLI from Git
-        # The cross crate is no longer published on crates.io.
-        # Install straight from the repository and lock dependencies.
-        run: cargo install --git https://github.com/cross-rs/cross cross --locked
-
-      - name: Add cargo bin to PATH
-        run: echo "${HOME}/.cargo/bin" >> $GITHUB_PATH
-
-      - name: Debug Environment
+          toolchain: stable
+          target: ${{ matrix.target }}
+          override: true
+      - name: Run dev checks
+        run: cargo xtask dev
+      - name: Build
         run: |
-          echo "=== Build Information ==="
-          echo "Target: ${{ matrix.target }}"
-          echo "Arch: ${{ matrix.arch }}"
-          echo "Features: ${{ matrix.features }}"
-          echo "Runner OS: ${{ runner.os }}"
-          echo "=== Rust Toolchain ==="
-          rustc --version
-          cargo --version
-          cross --version
-          echo "=== Installed Targets ==="
-          rustup target list --installed
-
-      - name: +8 GB swap to survive clang
-        uses: pierotofy/set-swap-space@v1.0
-        with:
-          swap-size-gb: 8
-
-      - name: Build with cross-compilation
-        id: build_step
-        shell: bash
-        env:
-          PKG_CONFIG_ALLOW_CROSS: "1"
-          CARGO_INCREMENTAL: "0"                 # still saves memory
-        run: |
-          echo "=== Starting Cross-Compilation Build ==="
-          echo "Target: ${{ matrix.target }}"
-          echo "Features: ${{ matrix.features }}"
-          
-          # Try building with specified features first
-          if cross build --release --target ${{ matrix.target }} --features ${{ matrix.features }} --verbose; then
-            echo "✅ Build succeeded with features: ${{ matrix.features }}"
-            echo "BUILD_STATUS=success" >> $GITHUB_OUTPUT
+          if [ "$USE_TOOLCHAIN" = "true" ]; then
+            ./scripts/toolchain-build.sh
           else
-            echo "❌ Build failed with OpenCV features, attempting fallback build..."
-            
-            # Try building without OpenCV features for ARM targets
-            if [[ "${{ matrix.target }}" == *"arm"* ]]; then
-              echo "🔄 Attempting fallback build without OpenCV for ARM target..."
-              if cross build --release --target ${{ matrix.target }} --no-default-features --verbose; then
-                echo "✅ Fallback build succeeded without OpenCV"
-                echo "BUILD_STATUS=fallback_success" >> $GITHUB_OUTPUT
-              else
-                echo "❌ Both primary and fallback builds failed"
-                echo "BUILD_STATUS=failed" >> $GITHUB_OUTPUT
-                echo "See FINAL_PROJECT_STATUS.md for details on OpenCV cross-compilation limitations"
-                # Don't exit 1 here - let continue-on-error handle it
-              fi
-            else
-              echo "❌ Non-ARM build failed unexpectedly"
-              echo "BUILD_STATUS=failed" >> $GITHUB_OUTPUT
-              exit 1
-            fi
+            ./scripts/cross-build.sh
           fi
-
-      - name: Build summary
-        if: always()
-        run: |
-          echo "=== Build Summary ==="
-          echo "Target: ${{ matrix.target }}"
-          echo "Status: ${{ steps.build_step.outputs.BUILD_STATUS }}"
-          
-          case "${{ steps.build_step.outputs.BUILD_STATUS }}" in
-            "success")
-              echo "🎉 Build completed successfully with all features"
-              ;;
-            "fallback_success")
-              echo "⚠️  Build completed with fallback (no OpenCV) - this is expected for ARM cross-compilation"
-              ;;
-            "failed")
-              echo "❌ Build failed completely"
-              ;;
-            *)
-              echo "❓ Build status unknown"
-              ;;
-          esac
-
-      - name: Install cargo-deb
-        if: github.event_name == 'release'
-        run: cargo install cargo-deb --locked
-
-      - name: Run tests with cross (if supported)
-        env:
-          PKG_CONFIG_ALLOW_CROSS: "1"
-        continue-on-error: true  # Some cross-compiled tests may not run
-        run: cross test --target ${{ matrix.target }} --features ${{ matrix.features }}
-
       - name: Upload artifact
-        if: success() || failure()  # Upload artifacts even if build failed for debugging
         uses: actions/upload-artifact@v4
         with:
-          name: rustspray-${{ matrix.arch }}-${{ github.run_id }}
-          path: |
-            target/${{ matrix.target }}/release/rustspray
-            target/${{ matrix.target }}/release/rustspray.exe
-          if-no-files-found: warn
-
-      - name: Build Debian package
-        if: github.event_name == 'release' && success()
-        run: cargo deb --no-build --target ${{ matrix.target }}
-
-      - name: Upload Debian package to release
-        if: github.event_name == 'release' && success()
-        uses: softprops/action-gh-release@v1
-        with:
-          files: target/${{ matrix.target }}/debian/rustspray_*.deb
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  test-native:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Run tests
-        run: cargo test --verbose
-
-      - name: Build native (x86_64)
-        run: cargo build --release --verbose
-
-      - name: Upload native build
-        uses: actions/upload-artifact@v4
-        with:
-          name: rustspray-x86_64-${{ github.run_id }}
-          path: target/release/rustspray
+          name: rustspray-${{ matrix.target }}
+          path: target/${{ matrix.target }}/release/

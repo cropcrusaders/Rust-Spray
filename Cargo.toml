@@ -10,6 +10,10 @@ readme      = "README.md"
 keywords    = ["agriculture", "precision-farming", "weed-control", "rust", "opencv"]
 categories  = ["hardware", "embedded", "science", "image-processing"]
 
+# Workspace settings
+[workspace]
+members = ["xtask"]
+
 # ─────────────────────────────────────────────────────────────────────────────
 [[example]]
 name = "basic_usage"
@@ -48,10 +52,11 @@ rscam = { version = "0.5", optional = true }
 # ─────────────────────────────────────────────────────────────────────────────
 [features]
 
-# Default features for ARM targets (Raspberry Pi)
-default = ["opencv"]
+default = []
 
-# Feature for host builds
+opencv = ["dep:opencv"]
+
+# Feature for host builds enabling OpenCV
 host = ["opencv"]
 
 # ARM-specific features (for cross-compilation)
@@ -66,6 +71,10 @@ arm-full = ["with-rppal", "picam", "opencv"]       # Full ARM support with all f
 
 # Convenience feature for full Raspberry Pi support
 raspberry-pi = ["with-rppal"]                      # Basic RPi support (GPIO only, no OpenCV)
+
+# ─────────────────────────────────────────────────────────────────────────────
+[dev-dependencies]
+cross = { git = "https://github.com/cross-rs/cross" }
 
 # ─────────────────────────────────────────────────────────────────────────────
 [package.metadata.deb]
