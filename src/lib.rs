@@ -1,24 +1,17 @@
-//! Rust-Spray: A camera-based precision spraying system for agriculture
+//! Rust-Spray: fast excess-green based weed detection.
 //!
-//! This crate provides a complete system for detecting weeds using computer vision
-//! and controlling sprayer hardware via GPIO pins.
+//! This crate implements a minimal pipeline for real-time weed spraying
+//! without any OpenCV dependency.  The processing stages are:
+//! 1. `exg` – compute a binary mask using SIMD.
+//! 2. `lanes` – reduce the bottom band into four lane ratios and apply
+//!    timing logic.
+//! 3. `io_gpio` – platform specific GPIO control.
+//! 4. `pipeline` – thread orchestration using crossbeam channels.
 
-#[cfg(feature = "picam")]
-pub mod picam;
-
-#[cfg(feature = "opencv")]
-pub mod camera;
 pub mod config;
-#[cfg(feature = "opencv")]
-pub mod detection;
-pub mod spray;
-#[cfg(feature = "opencv")]
-pub mod utils;
+pub mod exg;
+pub mod io_gpio;
+pub mod lanes;
+pub mod pipeline;
 
-// Re-export the main types for easier usage
-#[cfg(feature = "opencv")]
-pub use camera::{Camera, CameraError};
-pub use config::{Config, ConfigError};
-#[cfg(feature = "opencv")]
-pub use detection::{DetectionParams, DetectionResult, GreenOnBrown};
-pub use spray::{SprayController, SprayError};
+pub use config::SprayCfg;
