@@ -59,8 +59,7 @@ mod rpi {
                         .into_output(),
                 );
             }
-            // SAFETY: we push exactly four elements
-            let pins: [OutputPin; 4] = out.try_into().unwrap();
+            let pins: [OutputPin; 4] = out.try_into().map_err(|_| ActuatorError("Failed to convert pins array".to_string()))?;
             Ok(Self { pins })
         }
     }
