@@ -1,17 +1,11 @@
 [target.aarch64-unknown-linux-gnu]
-# Use the standard linker for Raspberry Pi builds. The `cross`
-# tool can still be used manually but is no longer required.
-linker = "aarch64-linux-gnu-gcc"
+linker = "zig"
+rustflags = ["-C", "link-arg=-fuse-ld=lld", "-C", "target-cpu=native", "-C", "lto=thin"]
 
 [target.aarch64-unknown-linux-musl]
-linker = "aarch64-linux-musl-gcc"
+linker = "zig"
+rustflags = ["-C", "link-arg=-static", "-C", "target-cpu=native", "-C", "lto=thin"]
 
 [target.armv7-unknown-linux-gnueabihf]
-linker = "arm-linux-gnueabihf-gcc"
-
-#[build]
-# Uncomment to cross compile for Raspberry Pi
-# target = "aarch64-unknown-linux-gnu"
-
-[unstable]
-build-std = ["std"]
+linker = "zig"
+rustflags = ["-C", "link-arg=-fuse-ld=lld", "-C", "target-feature=+neon", "-C", "lto=thin"]

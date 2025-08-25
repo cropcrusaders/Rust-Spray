@@ -118,8 +118,8 @@ cross-compile:
 
 # Install cross-compilation tool
 install-cross:
-	@echo "📦 Installing cross-compilation tool..."
-	cargo install cross --git https://github.com/cross-rs/cross
+	./scripts/cross-build.sh
+        cargo install cross --git https://github.com/cross-rs/cross
 
 # Show project info
 info:
@@ -131,14 +131,26 @@ info:
 	@echo "Version: $$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')"
 	@echo ""
 	@echo "Available features:"
-	@cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].features | keys[]' | sort
+        @cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].features | keys[]' | sort
 
 # Watch mode for development (requires cargo-watch)
 watch:
-	@if command -v cargo-watch >/dev/null 2>&1; then \
-		echo "👀 Starting watch mode..."; \
-		cargo watch -x "check --features host" -x "test --features host"; \
-	else \
-		echo "❌ 'cargo-watch' not installed. Install with: cargo install cargo-watch"; \
-		exit 1; \
-	fi
+        @if command -v cargo-watch >/dev/null 2>&1; then \
+                echo "👀 Starting watch mode..."; \
+                cargo watch -x "check --features host" -x "test --features host"; \
+        else \
+                echo "❌ 'cargo-watch' not installed. Install with: cargo install cargo-watch"; \
+                exit 1; \
+        fi
+
+# Simplified cross build targets
+.PHONY: cross pi-aarch64 armv7
+
+cross:
+	./scripts/cross-build.sh
+
+pi-aarch64:
+	cross build --release --target aarch64-unknown-linux-gnu
+
+armv7:
+	cross build --release --target armv7-unknown-linux-gnueabihf

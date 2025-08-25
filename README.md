@@ -59,6 +59,26 @@ Rust-Spray is a small example project that uses a camera to detect weeds and pul
 - Configuration via `config/config.toml`.
 - Optional display window for debugging.
 
+## Build Quickstart
+
+### Fastest on dev (toolchain mode + Zig)
+```
+./scripts/toolchain-build.sh
+```
+
+### Most compatible (cross-rs Docker)
+```
+./scripts/cross-build.sh
+```
+
+### Makefile helpers
+
+```
+make build       # host build
+make pi-aarch64  # cross build for 64-bit Pi
+make armv7       # cross build for 32-bit Pi
+```
+
 ## Building
 
 1. Install Rust (via [rustup](https://rustup.rs)) and OpenCV development libraries.
