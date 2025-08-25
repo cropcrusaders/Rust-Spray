@@ -11,6 +11,5 @@ fn link_opencv() -> opencv::Result<()> {
 #[cfg(not(feature = "opencv"))]
 #[test]
 fn opencv_not_available() {
-    // Test that passes when OpenCV is not available
-    assert!(true, "OpenCV feature not enabled");
+    // No-op test to ensure the crate compiles without OpenCV
 }

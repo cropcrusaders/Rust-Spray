@@ -3,11 +3,14 @@
 //! This application captures video frames, detects weeds using computer vision,
 //! and controls sprayer hardware via GPIO pins.
 
+#[cfg(feature = "opencv")]
 use std::error::Error;
 use std::process;
 
 use clap::Parser;
-use log::{error, info, warn};
+use log::error;
+#[cfg(feature = "opencv")]
+use log::{info, warn};
 #[cfg(feature = "opencv")]
 use opencv::highgui;
 
@@ -23,13 +26,16 @@ mod utils;
 
 #[cfg(feature = "opencv")]
 use camera::{Camera, CameraError};
+#[cfg(feature = "opencv")]
 use config::{Config, ConfigError};
 #[cfg(feature = "opencv")]
 use detection::{DetectionParams, GreenOnBrown};
+#[cfg(feature = "opencv")]
 use spray::{SprayController, SprayError};
 
 // ─── Error handling ─────────────────────────────────────────────────────────
 
+#[cfg(feature = "opencv")]
 #[derive(thiserror::Error, Debug)]
 pub enum AppError {
     #[error("Configuration error: {0}")]
@@ -46,6 +52,7 @@ pub enum AppError {
     General(String),
 }
 
+#[cfg(feature = "opencv")]
 type Result<T> = std::result::Result<T, AppError>;
 
 // ─── CLI args ───────────────────────────────────────────────────────────────
@@ -89,10 +96,12 @@ fn main() {
             process::exit(1);
         }
     }
-    
+
     #[cfg(not(feature = "opencv"))]
     {
-        error!("This application requires OpenCV support. Please compile with the 'opencv' feature.");
+        error!(
+            "This application requires OpenCV support. Please compile with the 'opencv' feature."
+        );
         error!("Example: cargo build --features opencv");
         process::exit(1);
     }

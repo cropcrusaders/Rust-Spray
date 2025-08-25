@@ -16,7 +16,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         run_with_opencv()
     }
-    
+
     #[cfg(not(feature = "opencv"))]
     {
         run_without_opencv()
@@ -98,12 +98,12 @@ fn run_with_opencv() -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(not(feature = "opencv"))]
 fn run_without_opencv() -> Result<(), Box<dyn std::error::Error>> {
     println!("OpenCV feature not enabled - running basic configuration test");
-    
+
     // Load configuration to test basic functionality
     let config = Config::load("config/config.toml").unwrap_or_else(|_| {
         println!("No config file found, using default configuration test");
         // Create a default config for testing
-        return rustspray::Config {
+        rustspray::Config {
             camera: rustspray::config::CameraConfig {
                 device: "0".to_string(),
                 resolution_width: 640,
@@ -127,14 +127,17 @@ fn run_without_opencv() -> Result<(), Box<dyn std::error::Error>> {
                 pins: [18, 19, 20, 21],
                 activation_duration_ms: 500,
             },
-        };
+        }
     });
 
     println!("Configuration loaded (camera: {})", config.camera.device);
 
     // Test spray controller (without GPIO it will be a mock)
     let mut spray_controller = SprayController::new(config.spray.pins)?;
-    println!("Mock spray controller initialized with {} sprayers", spray_controller.sprayer_count());
+    println!(
+        "Mock spray controller initialized with {} sprayers",
+        spray_controller.sprayer_count()
+    );
 
     // Simulate some spray activity
     spray_controller.pulse_all(Duration::from_millis(100));
