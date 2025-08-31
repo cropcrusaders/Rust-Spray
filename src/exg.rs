@@ -10,7 +10,10 @@ use std::simd::{i16x16, u8x16, Simd};
 ///
 /// Returns a vector of booleans representing the mask.
 pub fn exg_mask(rgb: &[u8], threshold: i16) -> Vec<bool> {
-    assert!(rgb.len().is_multiple_of(3), "RGB slice must be multiple of 3");
+    assert!(
+        rgb.len().is_multiple_of(3),
+        "RGB slice must be multiple of 3"
+    );
     let mut out = Vec::with_capacity(rgb.len() / 3);
     let mut i = 0;
     while i + 48 <= rgb.len() {

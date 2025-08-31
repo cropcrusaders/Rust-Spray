@@ -26,9 +26,16 @@ impl LaneReducer {
 
     /// Reduce the mask given image width/height.
     pub fn reduce(&mut self, mask: &[bool], width: usize, height: usize) -> Vec<bool> {
-        assert!(width >= self.lanes, "Width must be greater than or equal to number of lanes");
-        assert_eq!(mask.len(), width * height, "Mask length must equal width * height");
-        
+        assert!(
+            width >= self.lanes,
+            "Width must be greater than or equal to number of lanes"
+        );
+        assert_eq!(
+            mask.len(),
+            width * height,
+            "Mask length must equal width * height"
+        );
+
         let lane_width = width / self.lanes;
         let mut out = vec![false; self.lanes];
         for (lane, lane_out) in out.iter_mut().enumerate().take(self.lanes) {
@@ -43,7 +50,11 @@ impl LaneReducer {
                 }
             }
             let total = (lane_width * height) as f32;
-            let ratio = if total > 0.0 { count as f32 / total } else { 0.0 };
+            let ratio = if total > 0.0 {
+                count as f32 / total
+            } else {
+                0.0
+            };
             let is_on = if self.state[lane] {
                 ratio > self.off
             } else {
