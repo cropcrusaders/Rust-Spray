@@ -36,13 +36,16 @@ impl LaneReducer {
             "Mask length must equal width * height"
         );
 
-        let lane_width = width / self.lanes;
+        let base_width = width / self.lanes;
+        let remainder = width % self.lanes;
+        let mut x_start = 0usize;
         let mut out = vec![false; self.lanes];
         for (lane, lane_out) in out.iter_mut().enumerate().take(self.lanes) {
+            let lane_width = base_width + usize::from(lane < remainder);
             let mut count = 0u32;
             for y in 0..height {
-                let start = y * width + lane * lane_width;
-                let end = start + lane_width.min(width - lane * lane_width);
+                let start = y * width + x_start;
+                let end = start + lane_width;
                 for &px in &mask[start..end] {
                     if px {
                         count += 1;
@@ -61,6 +64,7 @@ impl LaneReducer {
                 ratio > self.on
             };
             *lane_out = is_on;
+            x_start += lane_width;
         }
         self.state.clone_from_slice(&out);
         out
@@ -109,6 +113,16 @@ mod tests {
         let width = 2;
         let height = 1;
         let mask = [true, false];
+        let mut reducer = LaneReducer::new(2, 0.5, 0.25);
+        let lanes = reducer.reduce(&mask, width, height);
+        assert_eq!(lanes, vec![true, false]);
+    }
+
+    #[test]
+    fn test_lane_width_with_remainder() {
+        let width = 5;
+        let height = 1;
+        let mask = [true, true, true, false, false];
         let mut reducer = LaneReducer::new(2, 0.5, 0.25);
         let lanes = reducer.reduce(&mask, width, height);
         assert_eq!(lanes, vec![true, false]);
