@@ -1,12 +1,12 @@
 //! Wiring of ExG mask -> lane reduction -> GPIO output.
 
-use crate::{exg::exg_mask, io_gpio::NozzleControl, lanes::LaneReducer};
+use crate::{io_gpio::NozzleControl, lanes::LaneReducer, vision::PlantVision};
 
 /// Processing pipeline using a boxed GPIO implementation.
 pub struct Pipeline {
     reducer: LaneReducer,
     gpio: Box<dyn NozzleControl>,
-    threshold: i16,
+    vision: PlantVision,
     width: usize,
     height: usize,
 }
@@ -16,14 +16,14 @@ impl Pipeline {
     pub fn new(
         reducer: LaneReducer,
         gpio: Box<dyn NozzleControl>,
-        threshold: i16,
+        vision: PlantVision,
         width: usize,
         height: usize,
     ) -> Self {
         Self {
             reducer,
             gpio,
-            threshold,
+            vision,
             width,
             height,
         }
@@ -31,7 +31,12 @@ impl Pipeline {
 
     /// Process one RGB frame.
     pub fn process(&mut self, frame: &[u8]) {
-        let mask = exg_mask(frame, self.threshold);
+        assert_eq!(
+            frame.len(),
+            self.width * self.height * 3,
+            "Frame length must match width * height * 3",
+        );
+        let mask = self.vision.detect(frame);
         let lanes = self.reducer.reduce(&mask, self.width, self.height);
         self.gpio.apply(&lanes);
     }
