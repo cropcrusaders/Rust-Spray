@@ -1,5 +1,14 @@
 //! Adaptive vegetation detector combining multiple color cues.
 
+/// Trait for vegetation detection strategies.
+///
+/// Any type that classifies interleaved RGB pixels as vegetation/background
+/// can be plugged into [`crate::pipeline::Pipeline`] through this trait.
+pub trait Detector {
+    /// Classify each pixel in an interleaved RGB buffer as vegetation.
+    fn detect(&self, rgb: &[u8]) -> Vec<bool>;
+}
+
 /// High-level vegetation detector tuned for spotting green plants.
 ///
 /// The detector fuses a classic Excess Green measurement with
@@ -98,6 +107,12 @@ impl PlantVision {
             + self.weights.green_ratio * green_ratio_term
             + self.weights.chroma * chroma_term
             + self.weights.bias
+    }
+}
+
+impl Detector for PlantVision {
+    fn detect(&self, rgb: &[u8]) -> Vec<bool> {
+        PlantVision::detect(self, rgb)
     }
 }
 

@@ -1,12 +1,12 @@
-//! Wiring of ExG mask -> lane reduction -> GPIO output.
+//! Wiring of detection mask -> lane reduction -> GPIO output.
 
-use crate::{io_gpio::NozzleControl, lanes::LaneReducer, vision::PlantVision};
+use crate::{io_gpio::NozzleControl, lanes::LaneReducer, vision::Detector};
 
-/// Processing pipeline using a boxed GPIO implementation.
+/// Processing pipeline using a boxed detector and GPIO implementation.
 pub struct Pipeline {
     reducer: LaneReducer,
     gpio: Box<dyn NozzleControl>,
-    vision: PlantVision,
+    detector: Box<dyn Detector>,
     width: usize,
     height: usize,
 }
@@ -16,14 +16,14 @@ impl Pipeline {
     pub fn new(
         reducer: LaneReducer,
         gpio: Box<dyn NozzleControl>,
-        vision: PlantVision,
+        detector: Box<dyn Detector>,
         width: usize,
         height: usize,
     ) -> Self {
         Self {
             reducer,
             gpio,
-            vision,
+            detector,
             width,
             height,
         }
@@ -36,7 +36,7 @@ impl Pipeline {
             self.width * self.height * 3,
             "Frame length must match width * height * 3",
         );
-        let mask = self.vision.detect(frame);
+        let mask = self.detector.detect(frame);
         let lanes = self.reducer.reduce(&mask, self.width, self.height);
         self.gpio.apply(&lanes);
         lanes

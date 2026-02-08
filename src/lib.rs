@@ -5,5 +5,6 @@
 pub mod exg;
 pub mod io_gpio;
 pub mod lanes;
+pub mod model;
 pub mod pipeline;
 pub mod vision;
