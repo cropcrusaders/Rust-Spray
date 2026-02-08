@@ -17,7 +17,7 @@ Rust-Spray is a minimal four-lane spray pipeline for agricultural robotics. It p
 # Standard build (nightly required)
 cargo build --release
 
-# Run all unit tests (10 tests)
+# Run all unit tests (16 tests)
 cargo test
 
 # Run the demo example
@@ -67,7 +67,7 @@ examples/
 Three-stage processing pipeline:
 
 1. **Vision** (`vision.rs`): `PlantVision::detect(rgb)` scores each pixel using weighted fusion of ExG, green ratio, and chroma cues. Returns `Vec<bool>` mask.
-2. **Lane Reduction** (`lanes.rs`): `LaneReducer::reduce(mask, w, h)` divides the mask into vertical strips and applies hysteresis thresholds to produce per-lane on/off states.
+2. **Lane Reduction** (`lanes.rs`): `LaneReducer::reduce(mask, w, h)` divides the mask into vertical strips and applies hysteresis thresholds with optional temporal hold and vertical ROI to produce per-lane on/off states. Exposes per-lane vegetation density.
 3. **Actuation** (`io_gpio.rs`): `NozzleControl::apply(lanes)` drives GPIO pins (or prints to stdout in mock mode).
 
 `Pipeline` in `pipeline.rs` orchestrates all three stages.
@@ -77,8 +77,8 @@ Three-stage processing pipeline:
 | Type | Module | Purpose |
 |------|--------|---------|
 | `PlantVision` | `vision.rs` | Configurable vegetation detector with tunable weights and thresholds |
-| `LaneReducer` | `lanes.rs` | Reduces 2D boolean mask to N lane states with hysteresis |
-| `Pipeline` | `pipeline.rs` | Combines vision, reducer, and GPIO into a single `process(frame)` call |
+| `LaneReducer` | `lanes.rs` | Reduces 2D boolean mask to N lane states with hysteresis, temporal hold, ROI, and per-lane density |
+| `Pipeline` | `pipeline.rs` | Combines vision, reducer, and GPIO into a single `process(frame)` call; returns lane states |
 | `NozzleControl` (trait) | `io_gpio.rs` | Abstraction for spray actuation; implementations: `MockGpio`, `RppalGpio` |
 
 ## Cargo Features
@@ -137,10 +137,10 @@ cargo install --git https://github.com/cross-rs/cross cross --locked
 
 ## Testing
 
-All 10 unit tests live alongside their modules:
+All 16 unit tests live alongside their modules:
 
 - `exg.rs`: 2 tests (green detection, non-green rejection)
 - `vision.rs`: 3 tests (bright green, dry soil, weight overrides)
-- `lanes.rs`: 5 tests (hysteresis, zero-lanes panic, edge cases)
+- `lanes.rs`: 11 tests (hysteresis, temporal hold, ROI, density, 4-lane detection, panics, edge cases)
 
 Run with `cargo test`. Tests use synthetic pixel data and need no external fixtures or hardware.
