@@ -91,6 +91,67 @@ Three-stage processing pipeline:
 
 No features are enabled by default.
 
+## Data Formats
+
+All image data uses **interleaved RGB** byte layout: `R₀G₀B₀R₁G₁B₁…Rₙ₋₁Gₙ₋₁Bₙ₋₁`.
+
+- `frame.len()` must equal `width * height * 3`.
+- Pixel values are `u8` (0–255).
+- `PlantVision::detect()` returns a `Vec<bool>` with one entry per pixel (`width * height` elements).
+- `LaneReducer::reduce()` expects the mask plus `width` and `height` to compute per-lane coverage ratios.
+
+## Default Configuration Values
+
+### PlantVision (from `Default` impl in `vision.rs`)
+
+| Parameter | Value | Description |
+|-----------|-------|-------------|
+| `exg_threshold` | `20` | Minimum ExG response before considering a pixel |
+| `green_ratio_floor` | `0.36` | Minimum green/(R+G+B+1) ratio |
+| `chroma_floor` | `0.08` | Minimum (max−min)/255 to reject grey/brown |
+| Weights | `exg=0.5, green_ratio=0.35, chroma=0.15, bias=0.0` | Fusion weights for the scoring function |
+
+### LaneReducer (typical values from the `four_lane` example)
+
+| Parameter | Value | Description |
+|-----------|-------|-------------|
+| `lanes` | `4` | Number of spray lanes |
+| `on` threshold | `0.3` | Coverage ratio to activate a lane |
+| `off` threshold | `0.15` | Coverage ratio to deactivate (hysteresis) |
+
+## Algorithm Details
+
+### Scoring (`PlantVision::score_pixel`)
+
+Each pixel gets a weighted linear score:
+
+```
+score = w_exg * (ExG − threshold) / 255
+      + w_gr  * (green_ratio − floor)
+      + w_chr * (chroma − floor)
+      + bias
+```
+
+Where:
+- `ExG = 2G − R − B` (Excess Green index)
+- `green_ratio = G / (R + G + B + 1)` (normalized green share)
+- `chroma = (max(R,G,B) − min(R,G,B)) / 255` (color saturation)
+
+A pixel is marked as vegetation when `score > 0.0`.
+
+### Lane Hysteresis (`LaneReducer::reduce`)
+
+Each lane occupies a vertical strip of the image. The lane width is `floor(width/lanes)`, with the first `width % lanes` lanes getting one extra column. For each lane the ratio of `true` pixels to total pixels is computed:
+
+- **Off → On:** ratio must exceed the `on` threshold.
+- **On → Off:** ratio must drop below the `off` threshold.
+
+This prevents rapid toggling when vegetation coverage hovers near the threshold.
+
+### ExG SIMD (`exg::exg_mask`)
+
+The standalone `exg_mask` function in `exg.rs` provides a fast single-cue mask using `std::simd`. It processes 16 pixels per iteration using `u8x16`/`i16x16` vectors, with a scalar loop handling the remainder. Note: `PlantVision::detect()` uses its own scalar multi-cue scoring and does not call `exg_mask`.
+
 ## Code Conventions
 
 - **Formatting:** Run `cargo fmt` before every commit. CI enforces `cargo fmt --check`.
