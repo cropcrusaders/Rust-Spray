@@ -1,0 +1,11 @@
+[package]
+name = "rpi-os"
+version = "0.1.0"
+edition = "2021"
+description = "Bare-metal operating system for Raspberry Pi 5 (BCM2712/Cortex-A76)"
+license = "MIT"
+
+[profile.release]
+lto = true
+opt-level = "s"
+debug = false

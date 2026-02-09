@@ -1,0 +1,20 @@
+# Raspberry Pi 5 boot configuration for RPI-OS bare-metal kernel
+#
+# Place this file on the FAT32 boot partition of the SD card
+# along with the firmware files and kernel8.img.
+
+# Boot in 64-bit mode (AArch64)
+arm_64bit=1
+
+# Use the mini UART for serial output (active on GPIO 14/15)
+enable_uart=1
+
+# Disable Bluetooth to free up the PL011 UART (optional)
+dtoverlay=disable-bt
+
+# Disable rainbow splash screen for faster boot
+disable_splash=1
+
+# Set core frequency for stable UART baud rate (optional)
+# core_freq=500
+# core_freq_min=500
