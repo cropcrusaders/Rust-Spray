@@ -1,13 +1,19 @@
 [package]
 name = "rustspray"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 license = "MIT"
 readme = "README.md"
+description = "SIMD-accelerated vegetation detection and spray control for Raspberry Pi"
 
 [dependencies]
 bytemuck = { version = "1.15", features = ["extern_crate_alloc"] }
 crossbeam = "0.8"
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+log = "0.4"
+env_logger = "0.11"
+ctrlc = { version = "3.4", features = ["termination"] }
 
 [target.'cfg(any(target_arch = "arm", target_arch = "aarch64"))'.dependencies]
 rppal = { version = "0.17", optional = true }
@@ -30,7 +36,10 @@ rpi = ["rppal"]
 camera-gstreamer = ["gstreamer"]
 camera-nokhwa = ["nokhwa"]
 
+[[bin]]
+name = "rustspray"
+path = "src/main.rs"
+
 [[example]]
 name = "four_lane"
 path = "examples/four_lane.rs"
-

@@ -1,0 +1,34 @@
+[Unit]
+Description=Rust-Spray Agricultural Spraying Pipeline
+Documentation=https://github.com/cropcrusaders/Rust-Spray
+After=network.target
+
+[Service]
+Type=simple
+
+# Camera capture piped into the spray pipeline binary.
+# The rustspray-camera script reads /etc/rustspray/config.toml
+# to determine camera backend, resolution, and frame rate.
+ExecStart=/bin/sh -c '/usr/local/bin/rustspray-camera | /usr/local/bin/rustspray --config /etc/rustspray/config.toml'
+
+Restart=on-failure
+RestartSec=5
+
+# GPIO access requires root.
+User=root
+
+# Logging goes to the journal (view with: journalctl -u rustspray -f)
+StandardOutput=journal
+StandardError=journal
+
+Environment=RUST_LOG=info
+
+# Hardening
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/sys/class/gpio /sys/devices
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
