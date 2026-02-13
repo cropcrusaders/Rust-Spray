@@ -17,7 +17,7 @@ Rust-Spray is a minimal four-lane spray pipeline for agricultural robotics. It p
 # Standard build (nightly required)
 cargo build --release
 
-# Run all unit tests (10 tests)
+# Run all unit tests
 cargo test
 
 # Run the demo example
@@ -45,6 +45,7 @@ CI runs on every push and pull request (`.github/workflows/ci.yml`). The full pi
 4. `cargo build --release` — release build must succeed
 5. `cargo test` — all tests must pass
 6. `cargo run --example four_lane -- --mock-gpio` — example must run
+7. `cargo run --release -- --test-pattern --mock-gpio --oneshot` — production binary must run
 
 Always run `cargo fmt` and `cargo test` before committing.
 
@@ -198,8 +199,9 @@ cargo install --git https://github.com/cross-rs/cross cross --locked
 
 ## Testing
 
-All 10 unit tests live alongside their modules:
+All unit tests live alongside their modules:
 
+- `config.rs`: 3 tests (sane defaults, partial TOML, full round-trip)
 - `exg.rs`: 2 tests (green detection, non-green rejection)
 - `vision.rs`: 3 tests (bright green, dry soil, weight overrides)
 - `lanes.rs`: 5 tests (hysteresis, zero-lanes panic, edge cases)
