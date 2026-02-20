@@ -9,9 +9,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@nightly
-        with:
-          components: rustfmt
+      - name: Install nightly toolchain
+        run: |
+          rustup toolchain install nightly --profile minimal --component rustfmt
+          rustup default nightly
       - name: Install system dependencies
         run: |
           sudo apt-get update
