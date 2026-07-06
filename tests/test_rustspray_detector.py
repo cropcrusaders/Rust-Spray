@@ -6,6 +6,7 @@ Requires the release binary: ``cargo build --release`` (or set
 
 import json
 import os
+import signal
 import struct
 import subprocess
 import sys
@@ -151,17 +152,18 @@ class TestRestartLogic:
 
     def test_timeout_triggers_restart(self):
         det = RustSprayDetector(
-            BINARY, CONFIG, num_lanes=4, mock_gpio=True, frame_timeout_s=0.001
+            BINARY, CONFIG, num_lanes=4, mock_gpio=True, frame_timeout_s=0.05
         )
         try:
-            # 1 ms is not enough to round-trip a large frame reliably; a
-            # timeout must consume restart budget, not hang.
-            big = synthetic_frame(set(), width=640, height=480)
-            try:
-                det.detect(big)
-            except RuntimeError:
-                pass  # exhausted budget — acceptable for this timeout
-            assert det._restarts >= 1
+            frame = synthetic_frame(set())
+            det.detect(frame)  # healthy first
+
+            # Freeze the subprocess so the next frame is guaranteed to time
+            # out; the wrapper must restart (SIGKILL works on a stopped
+            # process) and answer from the fresh instance.
+            os.kill(det._proc.pid, signal.SIGSTOP)
+            assert det.detect(frame)[2] == [False, False, False, False]
+            assert det._restarts == 1
         finally:
             det.close()
 

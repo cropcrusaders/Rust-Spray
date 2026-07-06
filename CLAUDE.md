@@ -161,7 +161,7 @@ Where:
 - `green_ratio = G / (R + G + B + 1)` (normalized green share)
 - `chroma = (max(R,G,B) − min(R,G,B)) / 255` (color saturation)
 
-A pixel is marked as vegetation when `score > 0.0`.
+A pixel is marked as vegetation when `score > 0.0` **and** green is the strongest channel (`G >= R && G >= B`). The green-dominance gate is required because the chroma cue otherwise rewards saturated warm soils (red-brown dirt: high R, low B) enough to tip the fused score positive.
 
 ### Lane Hysteresis (`LaneReducer::reduce`)
 
