@@ -86,6 +86,13 @@ struct Cli {
     #[arg(long)]
     ipc_mode: bool,
 
+    /// Override the TOML [gpio] pins: comma-separated BCM numbers, one
+    /// per lane (e.g. 27,22,23,24). Outer shells pass their own relay
+    /// wiring here so both sides address the same solenoids by
+    /// construction instead of by hand-synchronised config files.
+    #[arg(long, value_delimiter = ',', value_name = "BCM,BCM,...")]
+    gpio_pins: Option<Vec<u8>>,
+
     /// Print version and IPC protocol number as JSON, then exit
     #[arg(long)]
     output_version: bool,
@@ -106,13 +113,18 @@ fn main() {
     }
 
     // Load configuration.
-    let config = match Config::load(std::path::Path::new(&cli.config)) {
+    let mut config = match Config::load(std::path::Path::new(&cli.config)) {
         Ok(c) => c,
         Err(e) => {
             eprintln!("Error: {e}");
             std::process::exit(2);
         }
     };
+    // The pin override must land before validation so a lane/pin count
+    // mismatch from the outer shell is a hard startup error too.
+    if let Some(pins) = cli.gpio_pins.clone() {
+        config.gpio.pins = pins;
+    }
     if let Err(e) = config.validate() {
         eprintln!("Error: invalid configuration: {e}");
         std::process::exit(2);
@@ -494,4 +506,36 @@ fn build_real_gpio(_config: &Config) -> Box<dyn NozzleControl> {
         "real GPIO unavailable (requires an ARM build with --features rpi); falling back to mock"
     );
     Box::new(MockGpio::default())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn gpio_pins_flag_parses_comma_separated_bcm_numbers() {
+        let cli = Cli::parse_from(["rustspray", "--gpio-pins", "27,22,23,24"]);
+        assert_eq!(cli.gpio_pins, Some(vec![27, 22, 23, 24]));
+    }
+
+    #[test]
+    fn gpio_pins_flag_is_optional() {
+        let cli = Cli::parse_from(["rustspray"]);
+        assert_eq!(cli.gpio_pins, None);
+    }
+
+    #[test]
+    fn gpio_pins_flag_rejects_non_numeric_values() {
+        assert!(Cli::try_parse_from(["rustspray", "--gpio-pins", "27,BOARD13"]).is_err());
+    }
+
+    #[test]
+    fn gpio_pins_override_fails_validation_on_lane_mismatch() {
+        // Two pins for four lanes must be caught by Config::validate
+        // once the override is applied.
+        let mut config = Config::default();
+        config.gpio.pins = vec![27, 22];
+        let err = config.validate().unwrap_err();
+        assert!(err.contains("gpio.pins"), "unexpected error: {err}");
+    }
 }

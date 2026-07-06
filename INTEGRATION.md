@@ -115,7 +115,28 @@ The outer shell should treat any nonzero exit or response timeout as
 detector after that (the reference wrapper in
 `owl/detectors/rustspray_detector.py` implements exactly this).
 
-## 6. GPIO backend abstraction
+## 6. GPIO pin configuration
+
+Rust-Spray addresses pins by **BCM number** (rppal's numbering). Two
+sources, in precedence order:
+
+1. `--gpio-pins 27,22,23,24` — comma-separated BCM numbers, one per
+   lane, on the command line. **Outer shells must use this**, passing
+   the pins derived from their own relay config, so both sides address
+   the same solenoids by construction. If the count does not match
+   `[lanes] count`, startup fails with exit 2 before any frame is read.
+2. `[gpio] pins` in the TOML — used only when the flag is absent
+   (standalone deployments where the TOML is the single source of
+   truth).
+
+The defaults on both sides are OWL's stock relay wiring: OWL's
+`[Relays]` BOARD (physical header) pins 13, 15, 16, 18 = Rust-Spray's
+default BCM 27, 22, 23, 24. The reference wrapper
+(`owl/detectors/rustspray_detector.py`) accepts OWL's BOARD pins via its
+`board_pins` argument, translates them to BCM, and forwards them with
+`--gpio-pins` — never hand-copy pin numbers between the two configs.
+
+## 7. GPIO backend abstraction
 
 Actuation goes through the `NozzleControl` trait
 (`src/io_gpio.rs`):
@@ -146,7 +167,7 @@ board):
    validation in `Config::validate` — invalid actuation config must be a
    hard startup error.
 
-## 7. Build targets
+## 8. Build targets
 
 Requires **nightly Rust** (`#![feature(portable_simd)]`); the toolchain is
 pinned by `rust-toolchain.toml`.
@@ -169,7 +190,7 @@ The cdylib `librustspray_core.so` is produced by `cargo build --release`
 for FFI embedding; its C ABI is documented in `src/ffi.rs`
 (`rustspray_detect`).
 
-## 8. Example integration (Python)
+## 9. Example integration (Python)
 
 ```python
 import json, struct, subprocess

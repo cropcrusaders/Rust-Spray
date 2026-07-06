@@ -81,6 +81,13 @@ pub struct LanesConfig {
 pub struct GpioConfig {
     /// BCM pin numbers, one per lane, controlling the relay/MOSFET for
     /// each nozzle solenoid.
+    ///
+    /// The defaults are OWL's stock relay wiring — BOARD (physical
+    /// header) pins 13, 15, 16, 18, which are BCM 27, 22, 23, 24 — so a
+    /// Rust-Spray inner loop dropped into an unmodified OWL rig drives
+    /// the same solenoids OWL's Python would. When embedded under OWL,
+    /// the wrapper passes OWL's own `[Relays]` pins via `--gpio-pins`,
+    /// which overrides this value entirely.
     pub pins: Vec<u8>,
     /// Force mock GPIO even when compiled with real hardware support.
     pub mock: bool,
@@ -146,7 +153,7 @@ impl Default for LanesConfig {
 impl Default for GpioConfig {
     fn default() -> Self {
         Self {
-            pins: vec![17, 27, 22, 23],
+            pins: vec![27, 22, 23, 24],
             mock: false,
         }
     }
@@ -226,6 +233,16 @@ mod tests {
         assert_eq!(cfg.camera.height, 480);
         assert_eq!(cfg.lanes.count, 4);
         assert_eq!(cfg.gpio.pins.len(), 4);
+    }
+
+    #[test]
+    fn default_pins_match_owl_relay_wiring() {
+        // OWL's [Relays] config defaults to BOARD (physical header) pins
+        // 13, 15, 16, 18 — BCM 27, 22, 23, 24. Both sides must address
+        // the same solenoids out of the box; changing this default is a
+        // breaking change to the OWL integration contract.
+        let cfg = Config::default();
+        assert_eq!(cfg.gpio.pins, vec![27, 22, 23, 24]);
     }
 
     #[test]

@@ -34,11 +34,18 @@ rustspray:
   max_restarts: 3
 ```
 
-`rustspray.config` must point to a Rust-Spray TOML whose `[gpio] pins` and
-`[lanes] count` match the relay wiring OWL would otherwise drive — Rust-Spray
-actuates the solenoids itself in IPC mode. Set `mock_gpio: true` if OWL
-should keep exclusive control of the relays (Rust-Spray then only reports
-lane states).
+`rustspray.config` must point to a Rust-Spray TOML whose `[lanes] count`
+matches the number of nozzles. Set `mock_gpio: true` if OWL should keep
+exclusive control of the relays (Rust-Spray then only reports lane states).
+
+**Relay pins are taken from OWL's own `[Relays]` config, not from the
+TOML.** The factory wiring below passes OWL's BOARD (physical header) pin
+numbers to the detector, which translates them to the BCM numbers
+Rust-Spray uses and forwards them to the subprocess via `--gpio-pins`,
+overriding whatever the TOML says. Both sides therefore address the same
+solenoids by construction — there is no second pin list to keep in sync.
+(The defaults agree too: OWL's stock BOARD pins 13, 15, 16, 18 are
+Rust-Spray's default BCM 27, 22, 23, 24.)
 
 ## 3. Detector factory wiring
 
@@ -47,15 +54,24 @@ Wherever OWL instantiates its detector (e.g. `owl.py` / `greenonbrown.py`):
 ```python
 if cfg.detector_backend == "rustspray":
     from owl.detectors.rustspray_detector import RustSprayDetector
+    # OWL's [Relays] section maps relay number -> BOARD pin, e.g.
+    # {0: 13, 1: 15, 2: 16, 3: 18}. Hand those pins over verbatim, in
+    # relay order — the wrapper does the BOARD -> BCM translation.
+    board_pins = [cfg.relay_dict[n] for n in sorted(cfg.relay_dict)]
     detector = RustSprayDetector(
         binary_path=cfg.rustspray.binary,
         config_path=cfg.rustspray.config,
         num_lanes=cfg.num_nozzles,
         mock_gpio=cfg.rustspray.mock_gpio,
+        board_pins=board_pins,
         frame_timeout_s=cfg.rustspray.frame_timeout_ms / 1000.0,
         max_restarts=cfg.rustspray.max_restarts,
     )
 ```
+
+With `mock_gpio: true` Rust-Spray never touches GPIO, so `board_pins` may
+be omitted; passing it anyway is harmless and keeps the wiring in one
+place for when the flag is flipped.
 
 `RustSprayDetector.detect(frame)` matches the duck-typed interface of the
 existing detectors and returns `(boxes, annotated_frame, lane_states)`:

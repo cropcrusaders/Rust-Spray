@@ -19,7 +19,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "owl"))
 
-from detectors.rustspray_detector import RustSprayDetector  # noqa: E402
+from detectors.rustspray_detector import RustSprayDetector, board_to_bcm  # noqa: E402
 
 BINARY = os.environ.get("RUSTSPRAY_BIN", str(REPO_ROOT / "target" / "release" / "rustspray"))
 CONFIG = str(REPO_ROOT / "config" / "rustspray.toml")
@@ -110,6 +110,51 @@ class TestDetection:
             detector.detect(np.zeros((HEIGHT, WIDTH), dtype=np.uint8))
         with pytest.raises(ValueError):
             detector.detect(np.zeros((HEIGHT, WIDTH, 3), dtype=np.float32))
+
+
+class TestPinConfiguration:
+    """OWL's [Relays] pins (BOARD numbering) must reach the binary as BCM
+    numbers by construction — never by hand-editing the TOML."""
+
+    def test_board_to_bcm_translates_owl_default_relays(self):
+        # OWL's stock [Relays] wiring: physical pins 13, 15, 16, 18.
+        assert board_to_bcm([13, 15, 16, 18]) == [27, 22, 23, 24]
+
+    def test_board_to_bcm_rejects_non_gpio_pins(self):
+        for pin in (1, 2, 6, 9, 14, 39, 41):  # power, ground, out of range
+            with pytest.raises(ValueError, match="not a GPIO pin"):
+                board_to_bcm([pin])
+
+    def test_board_pins_must_match_lane_count(self):
+        with pytest.raises(ValueError, match="one relay pin per lane"):
+            RustSprayDetector(
+                BINARY, CONFIG, num_lanes=4, mock_gpio=True, board_pins=[13, 15]
+            )
+
+    def test_board_pins_are_forwarded_to_binary_as_bcm(self):
+        det = RustSprayDetector(
+            BINARY, CONFIG, num_lanes=4, mock_gpio=True, board_pins=[13, 15, 16, 18]
+        )
+        try:
+            args = det._proc.args
+            assert args[args.index("--gpio-pins") + 1] == "27,22,23,24"
+            # The binary must accept the override and still answer frames.
+            assert det.detect(synthetic_frame({0}))[2] == [True, False, False, False]
+        finally:
+            det.close()
+
+    def test_binary_rejects_pin_lane_count_mismatch(self):
+        # Two pins for the config's four lanes: hard startup error (exit 2)
+        # before any frame is read.
+        proc = subprocess.run(
+            [BINARY, "--ipc-mode", "--mock-gpio", "--config", CONFIG,
+             "--gpio-pins", "27,22"],
+            input=b"",
+            capture_output=True,
+            timeout=10,
+        )
+        assert proc.returncode == 2
+        assert "gpio.pins" in proc.stderr.decode()
 
 
 class TestRestartLogic:

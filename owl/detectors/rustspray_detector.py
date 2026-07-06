@@ -24,6 +24,35 @@ logger = logging.getLogger(__name__)
 # Sentinel placed on the reader queue when the subprocess closes stdout.
 _EOF = object()
 
+# BOARD (physical 40-pin header) -> BCM GPIO number, as mapped by
+# RPi.GPIO's BOARD mode on every 40-pin Raspberry Pi. OWL's [Relays]
+# config uses BOARD numbering; Rust-Spray (rppal) uses BCM. Keys absent
+# here are power, ground, or non-GPIO pins.
+BOARD_TO_BCM = {
+    3: 2, 5: 3, 7: 4, 8: 14, 10: 15, 11: 17, 12: 18, 13: 27, 15: 22,
+    16: 23, 18: 24, 19: 10, 21: 9, 22: 25, 23: 11, 24: 8, 26: 7,
+    27: 0, 28: 1, 29: 5, 31: 6, 32: 12, 33: 13, 35: 19, 36: 16,
+    37: 26, 38: 20, 40: 21,
+}
+
+
+def board_to_bcm(board_pins) -> list[int]:
+    """Translate BOARD (physical header) pin numbers to BCM GPIO numbers.
+
+    Raises ``ValueError`` for pins that are not GPIO-capable (power,
+    ground, or out of range) so a typo in OWL's [Relays] section fails at
+    startup instead of silently driving the wrong solenoid.
+    """
+    bcm = []
+    for pin in board_pins:
+        if pin not in BOARD_TO_BCM:
+            raise ValueError(
+                f"physical header pin {pin} is not a GPIO pin; "
+                f"check the [Relays] boardpin values"
+            )
+        bcm.append(BOARD_TO_BCM[pin])
+    return bcm
+
 
 class RustSprayDetector:
     """
@@ -56,13 +85,30 @@ class RustSprayDetector:
         num_lanes: int = 4,
         mock_gpio: bool = False,
         *,
+        board_pins: list[int] | None = None,
         frame_timeout_s: float | None = None,
         max_restarts: int | None = None,
     ):
+        """``board_pins`` takes OWL's relay pins verbatim — BOARD (physical
+        header) numbering, one per lane in lane order, exactly as they
+        appear in OWL's ``[Relays]`` config. They are translated to BCM
+        and passed to the subprocess via ``--gpio-pins``, overriding the
+        TOML, so both sides address the same solenoids by construction.
+        Only omit it when Rust-Spray's TOML is the single source of truth
+        for the wiring (e.g. ``mock_gpio=True`` test runs).
+        """
         self.binary_path = binary_path
         self.config_path = config_path
         self.num_lanes = num_lanes
         self.mock_gpio = mock_gpio
+        self.bcm_pins: list[int] | None = None
+        if board_pins is not None:
+            if len(board_pins) != num_lanes:
+                raise ValueError(
+                    f"board_pins has {len(board_pins)} entries but num_lanes "
+                    f"is {num_lanes} — one relay pin per lane required"
+                )
+            self.bcm_pins = board_to_bcm(board_pins)
         self.frame_timeout_s = (
             self.FRAME_TIMEOUT_S if frame_timeout_s is None else frame_timeout_s
         )
@@ -179,6 +225,8 @@ class RustSprayDetector:
     def _start_process(self) -> None:
         """Spawn rustspray subprocess. Called at init and on restart."""
         cmd = [self.binary_path, "--ipc-mode", "--config", self.config_path]
+        if self.bcm_pins is not None:
+            cmd += ["--gpio-pins", ",".join(str(p) for p in self.bcm_pins)]
         if self.mock_gpio:
             cmd.append("--mock-gpio")
         self._proc = subprocess.Popen(
