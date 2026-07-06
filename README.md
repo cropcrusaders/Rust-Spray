@@ -15,6 +15,9 @@ nozzles across independent lanes — all in real time.
   prevent rapid nozzle toggling near the decision boundary
 - **Configurable** — all thresholds, weights, pin mappings, and camera
   settings live in a single TOML config file
+- **Fail-safe** — nozzles are forced off on shutdown, a stalled camera
+  triggers a safe exit-and-restart, and a systemd watchdog catches a
+  wedged process
 - **Production-ready** — systemd service, install scripts, graceful
   shutdown, and structured logging via the journal
 - **Cross-compile friendly** — build on x86_64, deploy to ARM with one
@@ -196,6 +199,8 @@ device  = "/dev/video0" # Only for V4L2 backend
 width   = 640
 height  = 480
 fps     = 30
+stall_timeout_secs = 10 # Fail safe (exit, nozzles off) if no frame
+                        # arrives for this long; 0 disables
 
 [gpio]
 pins = [17, 27, 22, 23] # BCM pin numbers — must match your wiring

@@ -4,6 +4,8 @@
 //! or generates synthetic test frames, runs the vegetation detection
 //! pipeline, and drives GPIO pins to control spray nozzles.
 
+mod watchdog;
+
 use log::{error, info};
 use rustspray::{
     config::Config,
@@ -16,6 +18,10 @@ use std::io::Read;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use watchdog::Watchdog;
+
+/// Exit code when the camera stops delivering frames (stall fail-safe).
+const EXIT_STALLED: i32 = 3;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -109,10 +115,13 @@ fn main() {
 
     let frame_size = w * h * 3;
     let frame_interval = Duration::from_secs_f64(1.0 / config.camera.fps as f64);
+    let stall_timeout = Duration::from_secs(config.camera.stall_timeout_secs);
 
     info!("pipeline ready — frame size {} bytes", frame_size);
 
-    if test_pattern {
+    let mut watchdog = Watchdog::new();
+
+    let stalled = if test_pattern {
         info!("running with test pattern");
         run_test_pattern(
             &mut pipeline,
@@ -122,7 +131,9 @@ fn main() {
             oneshot,
             &running,
             frame_interval,
+            &mut watchdog,
         );
+        false
     } else {
         // Detect whether stdin is a pipe/file or a terminal.
         use std::io::IsTerminal;
@@ -131,19 +142,37 @@ fn main() {
             eprintln!("Pipe camera frames into stdin or use --test-pattern. See --help.");
             std::process::exit(1);
         }
-        info!("reading RGB24 frames from stdin");
-        run_stdin(&mut pipeline, frame_size, max_frames, &running);
-    }
+        info!(
+            "reading RGB24 frames from stdin (stall timeout: {})",
+            if stall_timeout.is_zero() {
+                "disabled".to_string()
+            } else {
+                format!("{} s", stall_timeout.as_secs())
+            },
+        );
+        run_stdin(
+            &mut pipeline,
+            frame_size,
+            max_frames,
+            &running,
+            stall_timeout,
+            &mut watchdog,
+        )
+    };
 
     // Fail safe: never exit with a valve left open.
     pipeline.all_off();
     info!("all nozzles off — shutdown complete");
+    if stalled {
+        std::process::exit(EXIT_STALLED);
+    }
 }
 
 // ---------------------------------------------------------------------------
 // Frame sources
 // ---------------------------------------------------------------------------
 
+#[allow(clippy::too_many_arguments)]
 fn run_test_pattern(
     pipeline: &mut Pipeline,
     width: usize,
@@ -152,6 +181,7 @@ fn run_test_pattern(
     oneshot: bool,
     running: &Arc<AtomicBool>,
     interval: Duration,
+    watchdog: &mut Watchdog,
 ) {
     let mut frame = vec![0u8; width * height * 3];
     // Green in lanes 0 and 2 (quarters 1 and 3), soil elsewhere.
@@ -175,6 +205,7 @@ fn run_test_pattern(
         let start = Instant::now();
         pipeline.process(&frame);
         count += 1;
+        watchdog.ping();
 
         let elapsed = start.elapsed();
         if count % 100 == 0 || count == 1 {
@@ -192,43 +223,93 @@ fn run_test_pattern(
     info!("processed {} frames", count);
 }
 
+/// Read frames from stdin on a dedicated thread and process them here.
+///
+/// Blocking `read_exact` on the main thread cannot detect a camera that
+/// hangs *without* closing the pipe — the process would sit forever with
+/// the last lane state applied to the valves. The reader thread plus a
+/// polled channel lets the main loop notice missing frames and fail safe.
+///
+/// Returns `true` if the loop ended because the camera stalled.
 fn run_stdin(
     pipeline: &mut Pipeline,
     frame_size: usize,
     max_frames: u64,
     running: &Arc<AtomicBool>,
-) {
-    let mut stdin = std::io::stdin().lock();
-    let mut buf = vec![0u8; frame_size];
+    stall_timeout: Duration,
+    watchdog: &mut Watchdog,
+) -> bool {
+    use crossbeam::channel::{bounded, RecvTimeoutError};
+
+    let (frame_tx, frame_rx) = bounded::<Vec<u8>>(1);
+    // Recycle buffers back to the reader to keep the hot path allocation-free.
+    let (free_tx, free_rx) = bounded::<Vec<u8>>(2);
+    for _ in 0..2 {
+        let _ = free_tx.try_send(vec![0u8; frame_size]);
+    }
+
+    std::thread::spawn(move || {
+        let mut stdin = std::io::stdin().lock();
+        loop {
+            let mut buf = free_rx.try_recv().unwrap_or_else(|_| vec![0u8; frame_size]);
+            match stdin.read_exact(&mut buf) {
+                Ok(()) => {
+                    if frame_tx.send(buf).is_err() {
+                        break; // main loop is gone
+                    }
+                }
+                Err(e) => {
+                    if e.kind() == std::io::ErrorKind::UnexpectedEof {
+                        info!("end of input stream");
+                    } else {
+                        error!("stdin read error: {}", e);
+                    }
+                    break; // dropping frame_tx disconnects the channel
+                }
+            }
+        }
+    });
+
+    // Poll in short intervals so SIGINT/SIGTERM stays responsive while
+    // waiting for frames.
+    let poll = Duration::from_millis(200);
+    let mut last_frame = Instant::now();
     let mut count: u64 = 0;
 
     while running.load(Ordering::SeqCst) {
-        match stdin.read_exact(&mut buf) {
-            Ok(()) => {}
-            Err(e) => {
-                if e.kind() == std::io::ErrorKind::UnexpectedEof {
-                    info!("end of input stream");
-                } else {
-                    error!("stdin read error: {}", e);
+        match frame_rx.recv_timeout(poll) {
+            Ok(buf) => {
+                let start = Instant::now();
+                pipeline.process(&buf);
+                let _ = free_tx.try_send(buf);
+                count += 1;
+                last_frame = Instant::now();
+                watchdog.ping();
+
+                let elapsed = start.elapsed();
+                if count % 100 == 0 || count == 1 {
+                    info!("frame {}: {:.1} ms", count, elapsed.as_secs_f64() * 1000.0,);
                 }
-                break;
+
+                if max_frames > 0 && count >= max_frames {
+                    break;
+                }
             }
-        }
-
-        let start = Instant::now();
-        pipeline.process(&buf);
-        count += 1;
-
-        let elapsed = start.elapsed();
-        if count % 100 == 0 || count == 1 {
-            info!("frame {}: {:.1} ms", count, elapsed.as_secs_f64() * 1000.0,);
-        }
-
-        if max_frames > 0 && count >= max_frames {
-            break;
+            Err(RecvTimeoutError::Timeout) => {
+                if !stall_timeout.is_zero() && last_frame.elapsed() >= stall_timeout {
+                    error!(
+                        "no frame received for {} s — camera stalled, failing safe",
+                        stall_timeout.as_secs(),
+                    );
+                    info!("processed {} frames", count);
+                    return true;
+                }
+            }
+            Err(RecvTimeoutError::Disconnected) => break,
         }
     }
     info!("processed {} frames", count);
+    false
 }
 
 // ---------------------------------------------------------------------------

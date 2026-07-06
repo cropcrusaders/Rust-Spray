@@ -16,6 +16,15 @@ ExecStart=/bin/sh -c '/usr/local/bin/rustspray-camera | /usr/local/bin/rustspray
 Restart=always
 RestartSec=5
 
+# Watchdog: rustspray sends WATCHDOG=1 once per second while frames are
+# flowing. If the whole pipeline wedges, systemd kills and restarts it.
+# (Camera stalls are already caught faster by camera.stall_timeout_secs
+# in config.toml.)
+WatchdogSec=30
+# The notify datagrams come from rustspray, not from the shell that
+# ExecStart spawns, so accept them from any process in the cgroup.
+NotifyAccess=all
+
 # GPIO access requires root.
 User=root
 

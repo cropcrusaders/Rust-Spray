@@ -33,6 +33,10 @@ pub struct CameraConfig {
     pub height: usize,
     /// Target frames per second.
     pub fps: u32,
+    /// Fail safe if the camera stops delivering frames: exit (nozzles
+    /// off, systemd restarts the service) after this many seconds
+    /// without a complete frame. `0` disables stall detection.
+    pub stall_timeout_secs: u64,
     /// Camera backend for the helper script: `"v4l2"` or `"libcamera"`.
     pub backend: String,
     /// V4L2 device path (used when `backend = "v4l2"`).
@@ -112,6 +116,7 @@ impl Default for CameraConfig {
             width: 640,
             height: 480,
             fps: 30,
+            stall_timeout_secs: 10,
             backend: "v4l2".to_string(),
             device: "/dev/video0".to_string(),
         }
@@ -255,6 +260,7 @@ count = 6
 width = 320
 height = 240
 fps = 15
+stall_timeout_secs = 7
 backend = "libcamera"
 device = "/dev/video1"
 
@@ -283,6 +289,7 @@ level = "debug"
 "#;
         let cfg: Config = toml::from_str(input).unwrap();
         assert_eq!(cfg.camera.width, 320);
+        assert_eq!(cfg.camera.stall_timeout_secs, 7);
         assert_eq!(cfg.camera.backend, "libcamera");
         assert_eq!(cfg.vision.exg_threshold, 30);
         assert!((cfg.vision.weights.bias - 0.05).abs() < f32::EPSILON);

@@ -10,6 +10,11 @@ width  = 640
 height = 480
 fps    = 30
 
+# Fail safe if the camera stops delivering frames: exit (nozzles off,
+# systemd restarts the service) after this many seconds without a
+# complete frame. Set to 0 to disable stall detection.
+stall_timeout_secs = 10
+
 # Camera backend used by the helper script:
 #   "v4l2"      — USB camera via ffmpeg + V4L2
 #   "libcamera" — Raspberry Pi Camera Module via rpicam-vid + ffmpeg
