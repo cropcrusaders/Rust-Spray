@@ -56,6 +56,7 @@ Always run `cargo fmt` and `cargo test` before committing.
 ```
 src/
   main.rs         # Production binary: CLI, config, logging, frame loop
+  watchdog.rs     # Binary-only sd_notify client for the systemd watchdog
   lib.rs          # Crate root; enables portable_simd, exports all modules
   config.rs       # TOML configuration loading + validation
   exg.rs          # SIMD-based Excess Green (ExG) mask computation
