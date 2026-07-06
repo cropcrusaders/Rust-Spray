@@ -40,4 +40,11 @@ impl Pipeline {
         let lanes = self.reducer.reduce(&mask, self.width, self.height);
         self.gpio.apply(&lanes);
     }
+
+    /// Force every nozzle off. Call during shutdown so no valve is left
+    /// open when the process exits.
+    pub fn all_off(&mut self) {
+        let lanes = vec![false; self.reducer.lane_count()];
+        self.gpio.apply(&lanes);
+    }
 }

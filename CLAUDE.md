@@ -32,7 +32,7 @@ cargo check --no-default-features --features camera-gstreamer
 
 # Cross-compile for Raspberry Pi (requires `cross` tool + Docker)
 cross build --release --target aarch64-unknown-linux-gnu --features rpi
-cross build --release --target armv7-unknown-linux-gnueabihf
+cross build --release --target armv7-unknown-linux-gnueabihf --features rpi
 ```
 
 ## CI Pipeline
@@ -42,10 +42,12 @@ CI runs on every push and pull request (`.github/workflows/ci.yml`). The full pi
 1. `cargo fmt --all -- --check` — formatting must pass
 2. `cargo check` with `camera-nokhwa` feature — must compile
 3. `cargo check` with `camera-gstreamer` feature — must compile
-4. `cargo build --release` — release build must succeed
-5. `cargo test` — all tests must pass
-6. `cargo run --example four_lane -- --mock-gpio` — example must run
-7. `cargo run --release -- --test-pattern --mock-gpio --oneshot` — production binary must run
+4. `cargo check --features rpi` — desktop fallback path must compile
+5. `cargo check --target aarch64-unknown-linux-gnu --features rpi` and `cargo check --target armv7-unknown-linux-gnueabihf --features rpi` — real GPIO code must compile for both Raspberry Pi targets
+6. `cargo build --release` — release build must succeed
+7. `cargo test` — all tests must pass
+8. `cargo run --example four_lane -- --mock-gpio` — example must run
+9. `cargo run --release -- --test-pattern --mock-gpio --oneshot` — production binary must run
 
 Always run `cargo fmt` and `cargo test` before committing.
 
@@ -53,7 +55,9 @@ Always run `cargo fmt` and `cargo test` before committing.
 
 ```
 src/
+  main.rs         # Production binary: CLI, config, logging, frame loop
   lib.rs          # Crate root; enables portable_simd, exports all modules
+  config.rs       # TOML configuration loading + validation
   exg.rs          # SIMD-based Excess Green (ExG) mask computation
   vision.rs       # Adaptive multi-cue vegetation detector (PlantVision)
   lanes.rs        # Lane reduction with hysteresis (LaneReducer)
@@ -151,17 +155,17 @@ This prevents rapid toggling when vegetation coverage hovers near the threshold.
 
 ### ExG SIMD (`exg::exg_mask`)
 
-The standalone `exg_mask` function in `exg.rs` provides a fast single-cue mask using `std::simd`. It processes 16 pixels per iteration using `u8x16`/`i16x16` vectors, with a scalar loop handling the remainder. Note: `PlantVision::detect()` uses its own scalar multi-cue scoring and does not call `exg_mask`.
+The standalone `exg_mask` function in `exg.rs` provides a fast single-cue mask using `std::simd`. It processes 16 pixels (48 interleaved bytes) per iteration: the R/G/B channels are deinterleaved with stride 3 into `u8x16` vectors, widened to `i16x16` for the ExG arithmetic, and a scalar loop handles the remainder. Note: `PlantVision::detect()` uses its own scalar multi-cue scoring and does not call `exg_mask`.
 
 ## Code Conventions
 
 - **Formatting:** Run `cargo fmt` before every commit. CI enforces `cargo fmt --check`.
 - **Documentation:** Use Rustdoc comments (`///`) on public functions and types.
 - **Functions:** Keep small and focused, single responsibility.
-- **Error handling:** Assertions (`assert!`) with descriptive messages for preconditions. No `Result`/`Error` types in the current API — panics on invalid input (appropriate for the embedded use case).
+- **Error handling:** Assertions (`assert!`) with descriptive messages for preconditions in the pipeline hot path. Configuration loading (`Config::load`) and validation (`Config::validate`) return `Result<_, String>` — a bad config file must be a hard startup error, never a silent fallback, because default GPIO pins on miswired hardware could actuate the wrong valves. A *missing* config file still yields defaults so testing stays easy.
 - **Testing:** Unit tests in `#[cfg(test)]` modules within each source file. Panic tests use `#[should_panic(expected = "...")]`.
 - **SIMD:** `exg.rs` uses `std::simd` with `u8x16`/`i16x16` vectors. Scalar fallback handles remainder pixels.
-- **Feature gating:** Hardware-specific code uses `#[cfg(feature = "rpi")]` and target-arch cfg guards.
+- **Feature gating:** Hardware-specific code uses `#[cfg(all(feature = "rpi", any(target_arch = "arm", target_arch = "aarch64")))]` — both conditions are required because `rppal` is a target-specific dependency, so `--features rpi` on a desktop host must still compile (falling back to mock GPIO).
 
 ## Dependencies
 
@@ -201,8 +205,8 @@ cargo install --git https://github.com/cross-rs/cross cross --locked
 
 All unit tests live alongside their modules:
 
-- `config.rs`: 3 tests (sane defaults, partial TOML, full round-trip)
-- `exg.rs`: 2 tests (green detection, non-green rejection)
+- `config.rs`: 6 tests (sane defaults, partial TOML, full round-trip, missing file, validation failures)
+- `exg.rs`: 4 tests (green detection, non-green rejection, interleaved SIMD path, SIMD-vs-scalar agreement)
 - `vision.rs`: 3 tests (bright green, dry soil, weight overrides)
 - `lanes.rs`: 5 tests (hysteresis, zero-lanes panic, edge cases)
 

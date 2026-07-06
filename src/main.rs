@@ -4,7 +4,7 @@
 //! or generates synthetic test frames, runs the vegetation detection
 //! pipeline, and drives GPIO pins to control spray nozzles.
 
-use log::{error, info, warn};
+use log::{error, info};
 use rustspray::{
     config::Config,
     io_gpio::{MockGpio, NozzleControl},
@@ -34,12 +34,27 @@ fn main() {
     let config_path = get_arg_value(&args, "--config")
         .or_else(|| get_arg_value(&args, "-c"))
         .unwrap_or_else(|| "/etc/rustspray/config.toml".to_string());
-    let config = Config::load(std::path::Path::new(&config_path));
+    let config = match Config::load(std::path::Path::new(&config_path)) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("Error: {e}");
+            std::process::exit(2);
+        }
+    };
+    if let Err(e) = config.validate() {
+        eprintln!("Error: invalid configuration: {e}");
+        std::process::exit(2);
+    }
 
-    // Initialise logging.
-    let log_level = get_arg_value(&args, "--log-level").unwrap_or(config.logging.level.clone());
-    std::env::set_var("RUST_LOG", &log_level);
-    env_logger::init();
+    // Initialise logging. Precedence: --log-level flag > RUST_LOG env
+    // > config file.
+    let mut log_builder = env_logger::Builder::from_env(
+        env_logger::Env::default().default_filter_or(&config.logging.level),
+    );
+    if let Some(level) = get_arg_value(&args, "--log-level") {
+        log_builder.parse_filters(&level);
+    }
+    log_builder.init();
 
     info!("rustspray {} starting", env!("CARGO_PKG_VERSION"));
     info!(
@@ -120,7 +135,9 @@ fn main() {
         run_stdin(&mut pipeline, frame_size, max_frames, &running);
     }
 
-    info!("shutdown complete");
+    // Fail safe: never exit with a valve left open.
+    pipeline.all_off();
+    info!("all nozzles off — shutdown complete");
 }
 
 // ---------------------------------------------------------------------------
@@ -218,16 +235,18 @@ fn run_stdin(
 // GPIO construction
 // ---------------------------------------------------------------------------
 
-#[cfg(feature = "rpi")]
+#[cfg(all(feature = "rpi", any(target_arch = "arm", target_arch = "aarch64")))]
 fn build_real_gpio(config: &Config) -> Box<dyn NozzleControl> {
     use rustspray::io_gpio::RppalGpio;
     info!("using real GPIO pins: {:?}", config.gpio.pins);
     Box::new(RppalGpio::new(&config.gpio.pins))
 }
 
-#[cfg(not(feature = "rpi"))]
+#[cfg(not(all(feature = "rpi", any(target_arch = "arm", target_arch = "aarch64"))))]
 fn build_real_gpio(_config: &Config) -> Box<dyn NozzleControl> {
-    warn!("real GPIO unavailable (not compiled with --features rpi); falling back to mock");
+    log::warn!(
+        "real GPIO unavailable (requires an ARM build with --features rpi); falling back to mock"
+    );
     Box::new(MockGpio::default())
 }
 

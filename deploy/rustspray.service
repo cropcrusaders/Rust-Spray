@@ -11,7 +11,9 @@ Type=simple
 # to determine camera backend, resolution, and frame rate.
 ExecStart=/bin/sh -c '/usr/local/bin/rustspray-camera | /usr/local/bin/rustspray --config /etc/rustspray/config.toml'
 
-Restart=on-failure
+# Always restart: a camera drop-out makes rustspray exit cleanly on EOF,
+# and the sprayer must come back on its own in the field.
+Restart=always
 RestartSec=5
 
 # GPIO access requires root.
@@ -23,10 +25,12 @@ StandardError=journal
 
 Environment=RUST_LOG=info
 
-# Hardening
+# Hardening. GPIO access goes through /dev/gpiomem* (rppal), which is
+# unaffected by ProtectSystem. Do NOT add ReadWritePaths=/sys/class/gpio —
+# that path no longer exists on Raspberry Pi OS Bookworm and a missing
+# ReadWritePaths entry makes the unit fail to start.
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/sys/class/gpio /sys/devices
 PrivateTmp=true
 NoNewPrivileges=true
 

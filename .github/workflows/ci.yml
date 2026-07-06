@@ -26,6 +26,13 @@ jobs:
       - run: cargo fmt --all -- --check
       - run: cargo check --no-default-features --features camera-nokhwa
       - run: cargo check --no-default-features --features camera-gstreamer
+      - name: Check rpi feature (desktop fallback)
+        run: cargo check --features rpi
+      - name: Check Raspberry Pi targets (real GPIO)
+        run: |
+          rustup target add aarch64-unknown-linux-gnu armv7-unknown-linux-gnueabihf
+          cargo check --target aarch64-unknown-linux-gnu --features rpi
+          cargo check --target armv7-unknown-linux-gnueabihf --features rpi
       - run: cargo build --release
       - run: cargo test
       - run: cargo run --example four_lane -- --mock-gpio
