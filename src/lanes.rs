@@ -24,6 +24,11 @@ impl LaneReducer {
         }
     }
 
+    /// Number of lanes this reducer produces.
+    pub fn lane_count(&self) -> usize {
+        self.lanes
+    }
+
     /// Reduce the mask given image width/height.
     pub fn reduce(&mut self, mask: &[bool], width: usize, height: usize) -> Vec<bool> {
         assert!(

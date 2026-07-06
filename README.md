@@ -108,6 +108,10 @@ VCC    = 5V from Pi (for relay coil logic)
 > lanes. If your relays are active-low, either use a board with
 > optocoupler isolation that accepts active-high, or swap the wiring
 > to use the NC (Normally Closed) terminals instead of NO.
+>
+> All pins are initialised **LOW** at startup and driven LOW again on
+> shutdown, so nozzles stay off whenever the pipeline is not actively
+> spraying.
 
 ## Quick Start (Desktop / Testing)
 
@@ -385,7 +389,7 @@ ls -la /dev/video0
 ## Development
 
 ```bash
-# Run tests (10 unit tests)
+# Run tests (18 unit tests)
 cargo test
 
 # Format code

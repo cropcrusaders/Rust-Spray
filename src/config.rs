@@ -170,23 +170,55 @@ impl Default for LoggingConfig {
 impl Config {
     /// Load configuration from a TOML file.
     ///
-    /// Returns defaults if the file is missing or unparseable (with a
-    /// warning printed to stderr).
-    pub fn load(path: &Path) -> Self {
+    /// A missing file yields the defaults (with a note on stderr) so the
+    /// binary stays usable for testing. A file that exists but cannot be
+    /// read or parsed is an **error** — silently falling back to default
+    /// GPIO pins on a misconfigured sprayer could actuate the wrong
+    /// hardware.
+    pub fn load(path: &Path) -> Result<Self, String> {
         match std::fs::read_to_string(path) {
-            Ok(content) => toml::from_str(&content).unwrap_or_else(|e| {
-                eprintln!(
-                    "Warning: failed to parse {}: {}; using defaults",
-                    path.display(),
-                    e,
-                );
-                Self::default()
-            }),
-            Err(_) => {
-                eprintln!("Config file {} not found, using defaults", path.display(),);
-                Self::default()
+            Ok(content) => toml::from_str(&content)
+                .map_err(|e| format!("failed to parse {}: {}", path.display(), e)),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                eprintln!("Config file {} not found, using defaults", path.display());
+                Ok(Self::default())
             }
+            Err(e) => Err(format!("failed to read {}: {}", path.display(), e)),
         }
+    }
+
+    /// Check invariants the pipeline relies on, returning a description
+    /// of the first problem found.
+    pub fn validate(&self) -> Result<(), String> {
+        if self.camera.width == 0 || self.camera.height == 0 {
+            return Err("camera.width and camera.height must be non-zero".into());
+        }
+        if self.camera.fps == 0 {
+            return Err("camera.fps must be non-zero".into());
+        }
+        if self.lanes.count == 0 {
+            return Err("lanes.count must be non-zero".into());
+        }
+        if self.camera.width < self.lanes.count {
+            return Err(format!(
+                "camera.width ({}) must be >= lanes.count ({})",
+                self.camera.width, self.lanes.count,
+            ));
+        }
+        if self.lanes.on_threshold < self.lanes.off_threshold {
+            return Err(format!(
+                "lanes.on_threshold ({}) must be >= lanes.off_threshold ({}) for hysteresis",
+                self.lanes.on_threshold, self.lanes.off_threshold,
+            ));
+        }
+        if self.gpio.pins.len() != self.lanes.count {
+            return Err(format!(
+                "gpio.pins has {} entries but lanes.count is {} — one pin per lane required",
+                self.gpio.pins.len(),
+                self.lanes.count,
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -258,5 +290,38 @@ level = "debug"
         assert_eq!(cfg.gpio.pins, vec![5, 6, 13, 19, 26, 21]);
         assert!(cfg.gpio.mock);
         assert_eq!(cfg.logging.level, "debug");
+        assert!(cfg.validate().is_ok());
+    }
+
+    #[test]
+    fn missing_file_yields_defaults() {
+        let cfg = Config::load(Path::new("/nonexistent/rustspray-test.toml")).unwrap();
+        assert_eq!(cfg.camera.width, 640);
+    }
+
+    #[test]
+    fn validate_rejects_pin_lane_mismatch() {
+        let cfg: Config = toml::from_str(
+            r#"
+[lanes]
+count = 6
+"#,
+        )
+        .unwrap();
+        // Default has 4 pins but 6 lanes were requested.
+        let err = cfg.validate().unwrap_err();
+        assert!(err.contains("gpio.pins"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn validate_rejects_zero_fps() {
+        let cfg: Config = toml::from_str(
+            r#"
+[camera]
+fps = 0
+"#,
+        )
+        .unwrap();
+        assert!(cfg.validate().is_err());
     }
 }
