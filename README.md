@@ -22,6 +22,11 @@ nozzles across independent lanes — all in real time.
   shutdown, and structured logging via the journal
 - **Cross-compile friendly** — build on x86_64, deploy to ARM with one
   command using the included `deploy.sh` script
+- **Embeddable** — run as a supervised inner loop for a host system such
+  as [OpenWeedLocator](https://github.com/geezacoleman/OpenWeedLocator)
+  via a versioned stdin/stdout protocol (`--ipc-mode`) or link the
+  detection kernel directly through C FFI — see
+  [INTEGRATION.md](INTEGRATION.md)
 
 ## Hardware Requirements
 
@@ -394,7 +399,7 @@ ls -la /dev/video0
 ## Development
 
 ```bash
-# Run tests (18 unit tests)
+# Run tests (32 tests: unit + IPC end-to-end)
 cargo test
 
 # Format code
@@ -433,6 +438,8 @@ src/
   lanes.rs        Lane reduction with hysteresis (LaneReducer)
   pipeline.rs     Pipeline orchestrator
   io_gpio.rs      GPIO abstraction (MockGpio, RppalGpio)
+  ipc.rs          Host-integration protocol (--ipc-mode)
+  ffi.rs          C FFI entry point (librustspray_core.so)
 examples/
   four_lane.rs    Synthetic frame demo
 config/

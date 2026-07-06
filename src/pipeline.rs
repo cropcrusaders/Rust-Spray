@@ -29,8 +29,8 @@ impl Pipeline {
         }
     }
 
-    /// Process one RGB frame.
-    pub fn process(&mut self, frame: &[u8]) {
+    /// Process one RGB frame and return the resulting lane states.
+    pub fn process(&mut self, frame: &[u8]) -> Vec<bool> {
         assert_eq!(
             frame.len(),
             self.width * self.height * 3,
@@ -39,6 +39,7 @@ impl Pipeline {
         let mask = self.vision.detect(frame);
         let lanes = self.reducer.reduce(&mask, self.width, self.height);
         self.gpio.apply(&lanes);
+        lanes
     }
 
     /// Force every nozzle off. Call during shutdown so no valve is left

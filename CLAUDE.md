@@ -6,10 +6,12 @@ Guidelines for AI assistants working on the Rust-Spray codebase.
 
 Rust-Spray is a minimal four-lane spray pipeline for agricultural robotics. It processes camera frames to detect vegetation using SIMD-accelerated color analysis and controls spray nozzles via GPIO. The primary target is embedded Linux on Raspberry Pi (ARM/ARM64), but it builds and runs on desktop with mock GPIO.
 
-**Package name:** `rustspray`
+**Package name:** `rustspray` (library target: `rustspray_core`, built as `rlib` + `cdylib`)
 **Edition:** Rust 2021
 **Toolchain:** Nightly (required for `#![feature(portable_simd)]`)
 **License:** MIT
+
+The crate can also run as an embedded inner loop for a host system such as OpenWeedLocator — frames in over stdin, JSON lane states out over stdout (`--ipc-mode`), or via C FFI (`librustspray_core.so`). The contract is specified in `INTEGRATION.md`.
 
 ## Build Commands
 
@@ -40,16 +42,19 @@ cross build --release --target armv7-unknown-linux-gnueabihf --features rpi
 CI runs on every push and pull request (`.github/workflows/ci.yml`). The full pipeline:
 
 1. `cargo fmt --all -- --check` — formatting must pass
-2. `cargo check` with `camera-nokhwa` feature — must compile
-3. `cargo check` with `camera-gstreamer` feature — must compile
-4. `cargo check --features rpi` — desktop fallback path must compile
-5. `cargo check --target aarch64-unknown-linux-gnu --features rpi` and `cargo check --target armv7-unknown-linux-gnueabihf --features rpi` — real GPIO code must compile for both Raspberry Pi targets
-6. `cargo build --release` — release build must succeed
-7. `cargo test` — all tests must pass
-8. `cargo run --example four_lane -- --mock-gpio` — example must run
-9. `cargo run --release -- --test-pattern --mock-gpio --oneshot` — production binary must run
+2. `cargo clippy --all-targets -- -D warnings` — no clippy warnings
+3. `cargo check` with `camera-nokhwa` feature — must compile
+4. `cargo check` with `camera-gstreamer` feature — must compile
+5. `cargo check --features rpi` — desktop fallback path must compile
+6. `cargo check --target aarch64-unknown-linux-gnu --features rpi` and `cargo check --target armv7-unknown-linux-gnueabihf --features rpi` — real GPIO code must compile for both Raspberry Pi targets
+7. `cargo build --release` — release build must succeed
+8. `cargo test` — all tests must pass
+9. `cargo run --example four_lane -- --mock-gpio` — example must run
+10. `cargo run --release -- --test-pattern --mock-gpio --oneshot` — production binary must run
 
-Always run `cargo fmt` and `cargo test` before committing.
+A separate `release.yml` workflow cross-compiles the binary (via `cross`) for both Raspberry Pi targets on every `v*` tag and attaches `rustspray-aarch64` and `rustspray-armv7` to the GitHub release.
+
+Always run `cargo fmt`, `cargo clippy --all-targets`, and `cargo test` before committing.
 
 ## Repository Structure
 
@@ -64,8 +69,13 @@ src/
   lanes.rs        # Lane reduction with hysteresis (LaneReducer)
   pipeline.rs     # Main Pipeline struct combining vision + lanes + GPIO
   io_gpio.rs      # NozzleControl trait, MockGpio, RppalGpio (feature-gated)
+  ipc.rs          # --ipc-mode: framed RGB24 stdin -> NDJSON stdout (protocol v1)
+  ffi.rs          # C ABI (rustspray_detect) for the cdylib
+tests/
+  ipc.rs          # End-to-end tests of --ipc-mode against the real binary
 examples/
   four_lane.rs    # Demo: synthetic 640x480 frame through the pipeline
+INTEGRATION.md    # Versioned IPC/FFI contract for host integrations (OWL etc.)
 ```
 
 ## Architecture
@@ -172,6 +182,7 @@ The standalone `exg_mask` function in `exg.rs` provides a fast single-cue mask u
 
 - **bytemuck** (1.15): Safe type transmutation with `extern_crate_alloc`
 - **crossbeam** (0.8): Concurrency primitives
+- **serde_json** (1): IPC response serialization
 - **rppal** (0.17, optional, ARM only): Raspberry Pi GPIO control
 - **nokhwa** (0.10, optional): V4L2 camera capture
 - **gstreamer** (0.21, optional): GStreamer media framework
@@ -210,5 +221,8 @@ All unit tests live alongside their modules:
 - `exg.rs`: 4 tests (green detection, non-green rejection, interleaved SIMD path, SIMD-vs-scalar agreement)
 - `vision.rs`: 3 tests (bright green, dry soil, weight overrides)
 - `lanes.rs`: 5 tests (hysteresis, zero-lanes panic, edge cases)
+- `ipc.rs`: 6 tests (in-memory protocol round-trip, clean EOF, truncation, dimension change, oversized dims)
+- `ffi.rs`: 4 tests (detection via the C entry point, null pointers, bad dimensions, missing config)
+- `tests/ipc.rs`: 4 end-to-end tests spawning the real binary in `--ipc-mode` over pipes
 
 Run with `cargo test`. Tests use synthetic pixel data and need no external fixtures or hardware.

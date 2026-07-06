@@ -1,0 +1,34 @@
+name: Release
+
+# Cross-compile the rustspray binary for both Raspberry Pi targets on
+# every release tag and attach the binaries to the GitHub release.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - target: aarch64-unknown-linux-gnu
+            artifact: rustspray-aarch64 # RPi 4/5 (64-bit)
+          - target: armv7-unknown-linux-gnueabihf
+            artifact: rustspray-armv7 # RPi 3B+ (32-bit)
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install cross
+        run: cargo install cross --git https://github.com/cross-rs/cross --locked
+      - name: Build
+        run: cross build --release --target ${{ matrix.target }} --features rpi
+      - name: Rename artifact
+        run: cp "target/${{ matrix.target }}/release/rustspray" "${{ matrix.artifact }}"
+      - name: Attach to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.artifact }}

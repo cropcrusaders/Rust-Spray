@@ -6,13 +6,27 @@ pub trait NozzleControl {
     fn apply(&mut self, lanes: &[bool]);
 }
 
-/// Mock implementation that prints activations.
+/// Mock implementation that prints lane state *changes* to stderr.
+///
+/// Output goes to stderr (not stdout) because in `--ipc-mode` stdout
+/// carries the JSON protocol stream and must stay clean.
 #[derive(Default)]
-pub struct MockGpio;
+pub struct MockGpio {
+    prev: Vec<bool>,
+}
 
 impl NozzleControl for MockGpio {
     fn apply(&mut self, lanes: &[bool]) {
-        println!("mock gpio: {:?}", lanes);
+        for (i, &state) in lanes.iter().enumerate() {
+            if self.prev.get(i) != Some(&state) {
+                eprintln!(
+                    "[MOCK GPIO] lane={} state={}",
+                    i,
+                    if state { "ON" } else { "OFF" },
+                );
+            }
+        }
+        self.prev = lanes.to_vec();
     }
 }
 

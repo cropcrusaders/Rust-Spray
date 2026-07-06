@@ -1,6 +1,6 @@
 [package]
 name = "rustspray"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 license = "MIT"
 readme = "README.md"
@@ -10,6 +10,7 @@ description = "SIMD-accelerated vegetation detection and spray control for Raspb
 bytemuck = { version = "1.15", features = ["extern_crate_alloc"] }
 crossbeam = "0.8"
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 toml = "0.8"
 log = "0.4"
 env_logger = "0.11"
@@ -36,6 +37,14 @@ rpi = ["rppal"]
 camera-gstreamer = ["gstreamer"]
 camera-nokhwa = ["nokhwa"]
 
+# The detection kernel is also built as a C-callable shared library
+# (librustspray_core.so) so hosts can link it directly instead of
+# spawning the subprocess. See src/ffi.rs and INTEGRATION.md.
+[lib]
+name = "rustspray_core"
+crate-type = ["cdylib", "rlib"]
+path = "src/lib.rs"
+
 [[bin]]
 name = "rustspray"
 path = "src/main.rs"
@@ -43,3 +52,8 @@ path = "src/main.rs"
 [[example]]
 name = "four_lane"
 path = "examples/four_lane.rs"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"

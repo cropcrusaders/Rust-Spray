@@ -1,4 +1,4 @@
-use rustspray::{
+use rustspray_core::{
     io_gpio::{MockGpio, NozzleControl},
     lanes::LaneReducer,
     pipeline::Pipeline,
@@ -21,7 +21,7 @@ fn main() {
     for y in 0..HEIGHT {
         for x in 0..WIDTH {
             let idx = (y * WIDTH + x) * 3;
-            if x < WIDTH / 4 || (x >= WIDTH / 2 && x < 3 * WIDTH / 4) {
+            if x < WIDTH / 4 || (WIDTH / 2..3 * WIDTH / 4).contains(&x) {
                 frame[idx + 1] = 255; // strong green
             }
         }

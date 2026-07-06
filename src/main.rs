@@ -7,9 +7,10 @@
 mod watchdog;
 
 use log::{error, info};
-use rustspray::{
+use rustspray_core::{
     config::Config,
     io_gpio::{MockGpio, NozzleControl},
+    ipc,
     lanes::LaneReducer,
     pipeline::Pipeline,
     vision::PlantVision,
@@ -33,6 +34,16 @@ fn main() {
 
     if args.iter().any(|a| a == "--version" || a == "-V") {
         println!("rustspray {}", env!("CARGO_PKG_VERSION"));
+        return;
+    }
+
+    // Machine-readable version + IPC protocol handshake for host processes.
+    if args.iter().any(|a| a == "--output-version") {
+        println!(
+            "{{\"rustspray_version\":\"{}\",\"ipc_protocol\":{}}}",
+            env!("CARGO_PKG_VERSION"),
+            ipc::PROTOCOL_VERSION,
+        );
         return;
     }
 
@@ -70,10 +81,16 @@ fn main() {
 
     let mock_gpio = args.iter().any(|a| a == "--mock-gpio") || config.gpio.mock;
     let test_pattern = args.iter().any(|a| a == "--test-pattern");
+    let ipc_mode = args.iter().any(|a| a == "--ipc-mode");
     let oneshot = args.iter().any(|a| a == "--oneshot");
     let max_frames: u64 = get_arg_value(&args, "--frames")
         .and_then(|v| v.parse().ok())
         .unwrap_or(0);
+
+    if ipc_mode && test_pattern {
+        eprintln!("Error: --ipc-mode and --test-pattern are mutually exclusive");
+        std::process::exit(2);
+    }
 
     // Graceful shutdown on SIGINT / SIGTERM.
     let running = Arc::new(AtomicBool::new(true));
@@ -85,7 +102,7 @@ fn main() {
 
     // Build pipeline components.
     let gpio: Box<dyn NozzleControl> = if mock_gpio {
-        info!("using mock GPIO (stdout)");
+        info!("using mock GPIO (state changes on stderr)");
         Box::new(MockGpio::default())
     } else {
         build_real_gpio(&config)
@@ -109,13 +126,58 @@ fn main() {
         config.lanes.off_threshold,
     );
 
+    let stall_timeout = Duration::from_secs(config.camera.stall_timeout_secs);
+
+    // IPC mode: a host process (e.g. OpenWeedLocator) owns frame capture
+    // and supervision. Frame dimensions come from the per-frame headers,
+    // stdout carries the JSON protocol stream, and ipc::run handles the
+    // nozzles-off fail-safe on every exit path itself.
+    if ipc_mode {
+        use std::io::IsTerminal;
+        if std::io::stdin().is_terminal() {
+            error!("no input source: stdin is a terminal");
+            eprintln!("--ipc-mode expects a host process piping frames into stdin. See --help.");
+            std::process::exit(1);
+        }
+        info!(
+            "IPC mode: protocol v{}, {} lanes",
+            ipc::PROTOCOL_VERSION,
+            config.lanes.count,
+        );
+        match ipc::run(
+            std::io::stdin(),
+            std::io::stdout().lock(),
+            vision,
+            reducer,
+            gpio,
+            running.clone(),
+            stall_timeout,
+        ) {
+            Ok(frames) => {
+                info!("processed {} frames", frames);
+                info!("all nozzles off — shutdown complete");
+            }
+            Err(ipc::IpcError::Stalled) => {
+                error!(
+                    "no frame received for {} s — host stalled, failing safe",
+                    stall_timeout.as_secs(),
+                );
+                std::process::exit(EXIT_STALLED);
+            }
+            Err(ipc::IpcError::Fatal(msg)) => {
+                error!("IPC error: {}", msg);
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
+
     let w = config.camera.width;
     let h = config.camera.height;
     let mut pipeline = Pipeline::new(reducer, gpio, vision, w, h);
 
     let frame_size = w * h * 3;
     let frame_interval = Duration::from_secs_f64(1.0 / config.camera.fps as f64);
-    let stall_timeout = Duration::from_secs(config.camera.stall_timeout_secs);
 
     info!("pipeline ready — frame size {} bytes", frame_size);
 
@@ -208,7 +270,7 @@ fn run_test_pattern(
         watchdog.ping();
 
         let elapsed = start.elapsed();
-        if count % 100 == 0 || count == 1 {
+        if count.is_multiple_of(100) || count == 1 {
             info!("frame {}: {:.1} ms", count, elapsed.as_secs_f64() * 1000.0,);
         }
 
@@ -287,7 +349,7 @@ fn run_stdin(
                 watchdog.ping();
 
                 let elapsed = start.elapsed();
-                if count % 100 == 0 || count == 1 {
+                if count.is_multiple_of(100) || count == 1 {
                     info!("frame {}: {:.1} ms", count, elapsed.as_secs_f64() * 1000.0,);
                 }
 
@@ -318,7 +380,7 @@ fn run_stdin(
 
 #[cfg(all(feature = "rpi", any(target_arch = "arm", target_arch = "aarch64")))]
 fn build_real_gpio(config: &Config) -> Box<dyn NozzleControl> {
-    use rustspray::io_gpio::RppalGpio;
+    use rustspray_core::io_gpio::RppalGpio;
     info!("using real GPIO pins: {:?}", config.gpio.pins);
     Box::new(RppalGpio::new(&config.gpio.pins))
 }
@@ -353,8 +415,12 @@ USAGE:
 
 OPTIONS:
     -c, --config <PATH>     Configuration file [default: /etc/rustspray/config.toml]
-        --mock-gpio         Print lane states to stdout instead of driving GPIO
+        --mock-gpio         Print lane state changes to stderr instead of driving GPIO
         --test-pattern      Use synthetic green/soil frames (no camera needed)
+        --ipc-mode          Host-integration mode: length-prefixed RGB24 frames on
+                            stdin, one JSON lane-state object per frame on stdout
+                            (protocol v{ipc}; see INTEGRATION.md)
+        --output-version    Print version + IPC protocol as JSON and exit
         --oneshot           Process one frame then exit
         --frames <N>        Stop after N frames (0 = unlimited)
         --log-level <LVL>   Override log level (trace/debug/info/warn/error)
@@ -382,5 +448,6 @@ CAMERA SETUP:
     See the provided rustspray-camera helper script for automatic
     camera setup based on config.toml.",
         version = env!("CARGO_PKG_VERSION"),
+        ipc = ipc::PROTOCOL_VERSION,
     );
 }
