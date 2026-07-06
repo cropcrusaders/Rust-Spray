@@ -6,7 +6,9 @@ Guidelines for AI assistants working on the Rust-Spray codebase.
 
 Rust-Spray is a minimal four-lane spray pipeline for agricultural robotics. It processes camera frames to detect vegetation using SIMD-accelerated color analysis and controls spray nozzles via GPIO. The primary target is embedded Linux on Raspberry Pi (ARM/ARM64), but it builds and runs on desktop with mock GPIO.
 
-**Package name:** `rustspray`
+It can also run as the **inner loop** of an outer shell such as OpenWeedLocator (OWL): `--ipc-mode` reads framed RGB24 from stdin and writes JSON lane states to stdout (protocol contract in `INTEGRATION.md`), and the cdylib `librustspray_core.so` exposes a C FFI (`rustspray_detect` in `src/ffi.rs`). The OWL-side Python wrapper lives in `owl/detectors/rustspray_detector.py`.
+
+**Package name:** `rustspray` (library crate name: `rustspray_core`, built as rlib + cdylib)
 **Edition:** Rust 2021
 **Toolchain:** Nightly (required for `#![feature(portable_simd)]`)
 **License:** MIT
@@ -23,8 +25,12 @@ cargo test
 # Run the demo example
 cargo run --example four_lane -- --mock-gpio
 
-# Check formatting
+# Run the Python integration tests (IPC protocol + OWL wrapper)
+cargo build --release && pytest tests/test_rustspray_detector.py
+
+# Check formatting and lints (CI enforces both)
 cargo fmt --all -- --check
+cargo clippy --all-targets -- -D warnings
 
 # Check with optional camera features
 cargo check --no-default-features --features camera-nokhwa
@@ -40,32 +46,44 @@ cross build --release --target armv7-unknown-linux-gnueabihf --features rpi
 CI runs on every push and pull request (`.github/workflows/ci.yml`). The full pipeline:
 
 1. `cargo fmt --all -- --check` — formatting must pass
-2. `cargo check` with `camera-nokhwa` feature — must compile
-3. `cargo check` with `camera-gstreamer` feature — must compile
-4. `cargo check --features rpi` — desktop fallback path must compile
-5. `cargo check --target aarch64-unknown-linux-gnu --features rpi` and `cargo check --target armv7-unknown-linux-gnueabihf --features rpi` — real GPIO code must compile for both Raspberry Pi targets
-6. `cargo build --release` — release build must succeed
-7. `cargo test` — all tests must pass
-8. `cargo run --example four_lane -- --mock-gpio` — example must run
-9. `cargo run --release -- --test-pattern --mock-gpio --oneshot` — production binary must run
+2. `cargo clippy --all-targets -- -D warnings` — lints must pass
+3. `cargo check` with `camera-nokhwa` feature — must compile
+4. `cargo check` with `camera-gstreamer` feature — must compile
+5. `cargo check --features rpi` — desktop fallback path must compile
+6. `cargo check --target aarch64-unknown-linux-gnu --features rpi` and `cargo check --target armv7-unknown-linux-gnueabihf --features rpi` — real GPIO code must compile for both Raspberry Pi targets
+7. `cargo build --release` — release build must succeed
+8. `cargo test` — all tests must pass
+9. `cargo run --example four_lane -- --mock-gpio` — example must run
+10. `cargo run --release -- --test-pattern --mock-gpio --oneshot` — production binary must run
+11. Python job: `pytest tests/test_rustspray_detector.py` against the release binary — IPC protocol and OWL wrapper tests must pass
 
-Always run `cargo fmt` and `cargo test` before committing.
+A separate workflow (`.github/workflows/release.yml`) cross-compiles `rustspray-aarch64` and `rustspray-armv7` on `v*` tags and attaches them to the GitHub release.
+
+Always run `cargo fmt`, `cargo clippy --all-targets -- -D warnings`, and `cargo test` before committing.
 
 ## Repository Structure
 
 ```
 src/
-  main.rs         # Production binary: CLI, config, logging, frame loop
+  main.rs         # Production binary: clap CLI, config, logging, frame loops (incl. IPC)
   watchdog.rs     # Binary-only sd_notify client for the systemd watchdog
-  lib.rs          # Crate root; enables portable_simd, exports all modules
+  lib.rs          # Crate root; enables portable_simd, exports all modules, kernel tests
   config.rs       # TOML configuration loading + validation
   exg.rs          # SIMD-based Excess Green (ExG) mask computation
   vision.rs       # Adaptive multi-cue vegetation detector (PlantVision)
   lanes.rs        # Lane reduction with hysteresis (LaneReducer)
   pipeline.rs     # Main Pipeline struct combining vision + lanes + GPIO
   io_gpio.rs      # NozzleControl trait, MockGpio, RppalGpio (feature-gated)
+  ipc.rs          # IPC protocol v1: framed stdin reader + stdout JSON writer
+  ffi.rs          # C FFI entry point (rustspray_detect) for the cdylib
 examples/
   four_lane.rs    # Demo: synthetic 640x480 frame through the pipeline
+owl/
+  detectors/rustspray_detector.py  # OWL Python wrapper (subprocess IPC client)
+  README.md       # OWL wiring guide: config schema, factory, shutdown
+tests/
+  test_rustspray_detector.py       # Python integration tests (pytest + numpy)
+INTEGRATION.md    # Versioned IPC/FFI contract for embedding Rust-Spray
 ```
 
 ## Architecture
@@ -74,9 +92,9 @@ Three-stage processing pipeline:
 
 1. **Vision** (`vision.rs`): `PlantVision::detect(rgb)` scores each pixel using weighted fusion of ExG, green ratio, and chroma cues. Returns `Vec<bool>` mask.
 2. **Lane Reduction** (`lanes.rs`): `LaneReducer::reduce(mask, w, h)` divides the mask into vertical strips and applies hysteresis thresholds to produce per-lane on/off states.
-3. **Actuation** (`io_gpio.rs`): `NozzleControl::apply(lanes)` drives GPIO pins (or prints to stdout in mock mode).
+3. **Actuation** (`io_gpio.rs`): `NozzleControl::apply(lanes)` drives GPIO pins (or logs `[MOCK GPIO] lane=N state=ON/OFF` state changes to stderr in mock mode — stdout is reserved for the IPC protocol).
 
-`Pipeline` in `pipeline.rs` orchestrates all three stages.
+`Pipeline` in `pipeline.rs` orchestrates all three stages for the fixed-size camera path. In `--ipc-mode`, `main.rs` composes the stages directly because frame dimensions arrive per-frame in the stream header.
 
 ## Key Types and Traits
 
@@ -172,6 +190,8 @@ The standalone `exg_mask` function in `exg.rs` provides a fast single-cue mask u
 
 - **bytemuck** (1.15): Safe type transmutation with `extern_crate_alloc`
 - **crossbeam** (0.8): Concurrency primitives
+- **clap** (4.5): CLI argument parsing (derive)
+- **serde_json** (1): IPC response serialization
 - **rppal** (0.17, optional, ARM only): Raspberry Pi GPIO control
 - **nokhwa** (0.10, optional): V4L2 camera capture
 - **gstreamer** (0.21, optional): GStreamer media framework
@@ -204,11 +224,17 @@ cargo install --git https://github.com/cross-rs/cross cross --locked
 
 ## Testing
 
-All unit tests live alongside their modules:
+All Rust unit tests live alongside their modules:
 
 - `config.rs`: 6 tests (sane defaults, partial TOML, full round-trip, missing file, validation failures)
 - `exg.rs`: 4 tests (green detection, non-green rejection, interleaved SIMD path, SIMD-vs-scalar agreement)
 - `vision.rs`: 3 tests (bright green, dry soil, weight overrides)
 - `lanes.rs`: 5 tests (hysteresis, zero-lanes panic, edge cases)
+- `io_gpio.rs`: 1 test (mock GPIO state-change tracking)
+- `ipc.rs`: 7 tests (framing round-trip, clean EOF, truncation, bad headers, JSON schema)
+- `ffi.rs`: 5 tests (detection via the C ABI, null/invalid args, missing config)
+- `lib.rs` (`kernel_tests`): 5 end-to-end kernel tests (all weed, no weed, single pixel, lane mapping, lane boundary)
 
 Run with `cargo test`. Tests use synthetic pixel data and need no external fixtures or hardware.
+
+Python integration tests in `tests/test_rustspray_detector.py` (pytest + numpy) exercise the built release binary end-to-end: protocol handshake, detection, hysteresis across frames, subprocess kill/restart, timeout, shutdown, and the raw wire format. Run `cargo build --release` first.

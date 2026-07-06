@@ -47,8 +47,8 @@ off_threshold = 0.15  # Coverage ratio to turn a lane OFF (hysteresis)
 [gpio]
 pins = [17, 27, 22, 23]
 
-# Set to true to print lane states to stdout instead of driving GPIO.
-# Useful for testing on the Pi without relay hardware connected.
+# Set to true to log lane state changes to stderr instead of driving
+# GPIO. Useful for testing on the Pi without relay hardware connected.
 mock = false
 
 # ── Logging ────────────────────────────────────────────────────────

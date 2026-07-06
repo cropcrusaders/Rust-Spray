@@ -22,6 +22,10 @@ nozzles across independent lanes — all in real time.
   shutdown, and structured logging via the journal
 - **Cross-compile friendly** — build on x86_64, deploy to ARM with one
   command using the included `deploy.sh` script
+- **Embeddable** — run as the inner loop of a larger system (e.g.
+  [OpenWeedLocator](https://github.com/geezacoleman/OpenWeedLocator)) via
+  a versioned stdin/stdout IPC protocol (`--ipc-mode`) or the C FFI in
+  `librustspray_core.so` — see [INTEGRATION.md](INTEGRATION.md)
 
 ## Hardware Requirements
 
@@ -288,6 +292,27 @@ rpicam-vid -t 0 --width 640 --height 480 --framerate 30 \
   rustspray --config /etc/rustspray/config.toml
 ```
 
+### Embedded in OpenWeedLocator (IPC mode)
+
+Rust-Spray can act as the detection + actuation inner loop for OWL's
+Python outer shell. OWL captures frames with picamera2 and pipes them to
+the binary; Rust-Spray returns per-lane states as JSON and drives the
+GPIO itself:
+
+```bash
+# Startup handshake — verify protocol compatibility
+rustspray --output-version
+# {"rustspray_version":"0.3.0","ipc_protocol":1}
+
+# Inner-loop mode: framed RGB24 on stdin, JSON lane states on stdout
+rustspray --ipc-mode --config /etc/rustspray/config.toml
+```
+
+The full protocol contract is in [INTEGRATION.md](INTEGRATION.md); the
+reference Python wrapper (with timeout, restart, and fallback handling)
+is in [`owl/detectors/rustspray_detector.py`](owl/detectors/rustspray_detector.py)
+and its wiring guide in [`owl/README.md`](owl/README.md).
+
 ## Architecture
 
 ```
@@ -394,8 +419,16 @@ ls -la /dev/video0
 ## Development
 
 ```bash
-# Run tests (18 unit tests)
+# Run Rust unit tests
 cargo test
+
+# Lint (CI enforces -D warnings)
+cargo clippy --all-targets -- -D warnings
+
+# Run the Python integration tests (IPC protocol + OWL wrapper)
+cargo build --release
+pip install pytest numpy
+pytest tests/test_rustspray_detector.py
 
 # Format code
 cargo fmt
@@ -426,15 +459,22 @@ cross build --release --target armv7-unknown-linux-gnueabihf --features rpi
 ```
 src/
   main.rs         Production binary (CLI, logging, signal handling)
-  lib.rs          Crate root
+  lib.rs          Crate root (rlib + cdylib `rustspray_core`)
   config.rs       TOML configuration loading
   exg.rs          SIMD Excess Green mask (u8x16/i16x16)
   vision.rs       Multi-cue vegetation detector (PlantVision)
   lanes.rs        Lane reduction with hysteresis (LaneReducer)
   pipeline.rs     Pipeline orchestrator
   io_gpio.rs      GPIO abstraction (MockGpio, RppalGpio)
+  ipc.rs          IPC protocol v1 (framed stdin frames, JSON stdout)
+  ffi.rs          C FFI entry point (rustspray_detect)
 examples/
   four_lane.rs    Synthetic frame demo
+owl/
+  detectors/rustspray_detector.py  OWL Python wrapper (drop-in detector)
+  README.md       OWL wiring guide (config schema, factory, shutdown)
+tests/
+  test_rustspray_detector.py  Python integration tests for the IPC protocol
 config/
   rustspray.toml  Default configuration (copy to /etc/rustspray/)
 deploy/
@@ -443,6 +483,7 @@ scripts/
   install.sh         Pi installation script
   deploy.sh          Cross-compile + SSH deploy script
   rustspray-camera.sh  Camera capture helper
+INTEGRATION.md    Versioned IPC/FFI contract for embedding Rust-Spray
 ```
 
 ## License
