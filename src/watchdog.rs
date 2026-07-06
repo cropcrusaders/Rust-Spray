@@ -21,7 +21,7 @@ pub struct Watchdog {
 impl Watchdog {
     /// Connect to `$NOTIFY_SOCKET` if present and announce `READY=1`.
     pub fn new() -> Self {
-        let mut wd = Self {
+        let wd = Self {
             #[cfg(unix)]
             socket: connect_notify_socket(),
             last_ping: Instant::now(),

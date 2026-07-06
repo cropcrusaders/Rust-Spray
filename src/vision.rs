@@ -70,10 +70,7 @@ impl PlantVision {
             "RGB slice must be multiple of 3",
         );
         let mut mask = Vec::with_capacity(rgb.len() / 3);
-        for chunk in rgb.chunks_exact(3) {
-            let r = chunk[0];
-            let g = chunk[1];
-            let b = chunk[2];
+        for &[r, g, b] in rgb.as_chunks::<3>().0 {
             mask.push(self.score_pixel(r, g, b) > 0.0);
         }
         mask
