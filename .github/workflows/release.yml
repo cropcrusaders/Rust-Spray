@@ -1,0 +1,54 @@
+name: Release
+
+# Cross-compiles the rustspray binary for both supported Raspberry Pi
+# targets on every release tag and attaches the binaries to the GitHub
+# release, so OWL installations can download a prebuilt inner loop:
+#   rustspray-aarch64  (RPi 4/5, 64-bit OS)
+#   rustspray-armv7    (RPi 3B+, 32-bit OS)
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  cross-build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - target: aarch64-unknown-linux-gnu
+            artifact: rustspray-aarch64
+            linker: aarch64-linux-gnu-gcc
+            packages: gcc-aarch64-linux-gnu libc6-dev-arm64-cross
+          - target: armv7-unknown-linux-gnueabihf
+            artifact: rustspray-armv7
+            linker: arm-linux-gnueabihf-gcc
+            packages: gcc-arm-linux-gnueabihf libc6-dev-armhf-cross
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install nightly toolchain
+        run: |
+          rustup toolchain install nightly --profile minimal
+          rustup default nightly
+          rustup target add ${{ matrix.target }}
+      - name: Install cross linker
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ${{ matrix.packages }}
+      - name: Build (real GPIO enabled)
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+          CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER: arm-linux-gnueabihf-gcc
+        run: cargo build --release --target ${{ matrix.target }} --features rpi
+      - name: Rename artifact
+        run: cp target/${{ matrix.target }}/release/rustspray ${{ matrix.artifact }}
+      - name: Smoke-check binary format
+        run: file ${{ matrix.artifact }}
+      - name: Attach to GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.artifact }}

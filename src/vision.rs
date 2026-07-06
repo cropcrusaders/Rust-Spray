@@ -70,10 +70,7 @@ impl PlantVision {
             "RGB slice must be multiple of 3",
         );
         let mut mask = Vec::with_capacity(rgb.len() / 3);
-        for chunk in rgb.chunks_exact(3) {
-            let r = chunk[0];
-            let g = chunk[1];
-            let b = chunk[2];
+        for &[r, g, b] in rgb.as_chunks::<3>().0 {
             mask.push(self.score_pixel(r, g, b) > 0.0);
         }
         mask
@@ -81,6 +78,13 @@ impl PlantVision {
 
     #[inline]
     fn score_pixel(&self, r: u8, g: u8, b: u8) -> f32 {
+        // Green-dominance gate: vegetation must have green as the strongest
+        // channel. Without it the chroma cue rewards saturated warm soils
+        // (red-brown dirt: high R, low B) enough to tip the fused score
+        // positive and spray continuously on red soil.
+        if g < r || g < b {
+            return -1.0;
+        }
         let r_f = r as f32;
         let g_f = g as f32;
         let b_f = b as f32;
@@ -116,6 +120,16 @@ mod tests {
     fn dry_soil_is_rejected() {
         let detector = PlantVision::default();
         let mask = detector.detect(&[120, 90, 70]);
+        assert!(!mask[0]);
+    }
+
+    #[test]
+    fn saturated_red_brown_soil_is_rejected() {
+        // High-chroma warm soil (red dirt). The chroma term alone would
+        // push this pixel's fused score positive; the green-dominance
+        // gate must reject it.
+        let detector = PlantVision::default();
+        let mask = detector.detect(&[120, 90, 50]);
         assert!(!mask[0]);
     }
 

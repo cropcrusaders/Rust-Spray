@@ -9,7 +9,7 @@ use serde::Deserialize;
 use std::path::Path;
 
 /// Top-level configuration.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 #[serde(default)]
 pub struct Config {
     pub camera: CameraConfig,
@@ -97,18 +97,6 @@ pub struct LoggingConfig {
 // ---------------------------------------------------------------------------
 // Defaults — mirror the values from PlantVision::default() and the example.
 // ---------------------------------------------------------------------------
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            camera: CameraConfig::default(),
-            vision: VisionConfig::default(),
-            lanes: LanesConfig::default(),
-            gpio: GpioConfig::default(),
-            logging: LoggingConfig::default(),
-        }
-    }
-}
 
 impl Default for CameraConfig {
     fn default() -> Self {

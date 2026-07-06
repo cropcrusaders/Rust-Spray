@@ -1,15 +1,17 @@
 //! Production binary for the Rust-Spray pipeline.
 //!
-//! Reads raw RGB24 frames from stdin (piped from a camera capture tool)
-//! or generates synthetic test frames, runs the vegetation detection
-//! pipeline, and drives GPIO pins to control spray nozzles.
+//! Reads raw RGB24 frames from stdin (piped from a camera capture tool,
+//! or framed by an outer shell in `--ipc-mode`), runs the vegetation
+//! detection pipeline, and drives GPIO pins to control spray nozzles.
 
 mod watchdog;
 
+use clap::Parser;
 use log::{error, info};
-use rustspray::{
+use rustspray_core::{
     config::Config,
     io_gpio::{MockGpio, NozzleControl},
+    ipc,
     lanes::LaneReducer,
     pipeline::Pipeline,
     vision::PlantVision,
@@ -23,24 +25,88 @@ use watchdog::Watchdog;
 /// Exit code when the camera stops delivering frames (stall fail-safe).
 const EXIT_STALLED: i32 = 3;
 
+const CAMERA_HELP: &str = "\
+CAMERA SETUP:
+    Pipe camera output as raw RGB24 into stdin. Examples:
+
+    # Raspberry Pi Camera Module (CSI) via libcamera + ffmpeg
+    rpicam-vid -t 0 --width 640 --height 480 --framerate 30 \\
+               --codec yuv420 --nopreview -o - | \\
+    ffmpeg -f rawvideo -pix_fmt yuv420p -s 640x480 -i - \\
+           -f rawvideo -pix_fmt rgb24 pipe:1 | \\
+    rustspray --config /etc/rustspray/config.toml
+
+    # USB camera via ffmpeg + V4L2
+    ffmpeg -f v4l2 -framerate 30 -video_size 640x480 \\
+           -i /dev/video0 -f rawvideo -pix_fmt rgb24 pipe:1 | \\
+    rustspray --config /etc/rustspray/config.toml
+
+    # Dry-run without any camera
+    rustspray --test-pattern --mock-gpio
+
+    See the provided rustspray-camera helper script for automatic
+    camera setup based on config.toml.
+
+IPC MODE:
+    With --ipc-mode an outer shell (e.g. OpenWeedLocator) writes framed
+    RGB24 to stdin — an 8-byte little-endian [width:u32][height:u32]
+    header before each frame — and receives one JSON line per frame on
+    stdout. See INTEGRATION.md for the full protocol contract.";
+
+/// SIMD-accelerated vegetation detection and spray control.
+#[derive(Parser, Debug)]
+#[command(name = "rustspray", version, about, after_help = CAMERA_HELP)]
+struct Cli {
+    /// Configuration file
+    #[arg(short, long, default_value = "/etc/rustspray/config.toml")]
+    config: String,
+
+    /// Skip GPIO hardware; log lane state changes to stderr instead
+    #[arg(long)]
+    mock_gpio: bool,
+
+    /// Use synthetic green/soil frames (no camera needed)
+    #[arg(long, conflicts_with = "ipc_mode")]
+    test_pattern: bool,
+
+    /// Process one frame then exit
+    #[arg(long)]
+    oneshot: bool,
+
+    /// Stop after N frames (0 = unlimited)
+    #[arg(long, default_value_t = 0)]
+    frames: u64,
+
+    /// Override log level (trace/debug/info/warn/error)
+    #[arg(long)]
+    log_level: Option<String>,
+
+    /// Read framed RGB24 from stdin and write one JSON line per frame
+    /// to stdout (protocol v1 — see INTEGRATION.md)
+    #[arg(long)]
+    ipc_mode: bool,
+
+    /// Print version and IPC protocol number as JSON, then exit
+    #[arg(long)]
+    output_version: bool,
+}
+
 fn main() {
-    let args: Vec<String> = std::env::args().collect();
+    let cli = Cli::parse();
 
-    if args.iter().any(|a| a == "--help" || a == "-h") {
-        print_usage();
-        return;
-    }
-
-    if args.iter().any(|a| a == "--version" || a == "-V") {
-        println!("rustspray {}", env!("CARGO_PKG_VERSION"));
+    // Startup handshake for outer shells: must work without a config
+    // file and must print nothing else on stdout.
+    if cli.output_version {
+        println!(
+            "{{\"rustspray_version\":\"{}\",\"ipc_protocol\":{}}}",
+            env!("CARGO_PKG_VERSION"),
+            ipc::IPC_PROTOCOL_VERSION,
+        );
         return;
     }
 
     // Load configuration.
-    let config_path = get_arg_value(&args, "--config")
-        .or_else(|| get_arg_value(&args, "-c"))
-        .unwrap_or_else(|| "/etc/rustspray/config.toml".to_string());
-    let config = match Config::load(std::path::Path::new(&config_path)) {
+    let config = match Config::load(std::path::Path::new(&cli.config)) {
         Ok(c) => c,
         Err(e) => {
             eprintln!("Error: {e}");
@@ -57,8 +123,8 @@ fn main() {
     let mut log_builder = env_logger::Builder::from_env(
         env_logger::Env::default().default_filter_or(&config.logging.level),
     );
-    if let Some(level) = get_arg_value(&args, "--log-level") {
-        log_builder.parse_filters(&level);
+    if let Some(level) = &cli.log_level {
+        log_builder.parse_filters(level);
     }
     log_builder.init();
 
@@ -68,12 +134,7 @@ fn main() {
         config.camera.width, config.camera.height, config.camera.fps, config.lanes.count,
     );
 
-    let mock_gpio = args.iter().any(|a| a == "--mock-gpio") || config.gpio.mock;
-    let test_pattern = args.iter().any(|a| a == "--test-pattern");
-    let oneshot = args.iter().any(|a| a == "--oneshot");
-    let max_frames: u64 = get_arg_value(&args, "--frames")
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(0);
+    let mock_gpio = cli.mock_gpio || config.gpio.mock;
 
     // Graceful shutdown on SIGINT / SIGTERM.
     let running = Arc::new(AtomicBool::new(true));
@@ -85,7 +146,7 @@ fn main() {
 
     // Build pipeline components.
     let gpio: Box<dyn NozzleControl> = if mock_gpio {
-        info!("using mock GPIO (stdout)");
+        info!("using mock GPIO (stderr)");
         Box::new(MockGpio::default())
     } else {
         build_real_gpio(&config)
@@ -109,6 +170,26 @@ fn main() {
         config.lanes.off_threshold,
     );
 
+    let mut watchdog = Watchdog::new();
+
+    if cli.ipc_mode {
+        info!(
+            "IPC mode: framed RGB24 on stdin, JSON v{} on stdout",
+            ipc::IPC_PROTOCOL_VERSION,
+        );
+        let exit_code = run_ipc(
+            vision,
+            reducer,
+            gpio,
+            cli.frames,
+            cli.oneshot,
+            &running,
+            &mut watchdog,
+        );
+        info!("all nozzles off — shutdown complete");
+        std::process::exit(exit_code);
+    }
+
     let w = config.camera.width;
     let h = config.camera.height;
     let mut pipeline = Pipeline::new(reducer, gpio, vision, w, h);
@@ -119,16 +200,14 @@ fn main() {
 
     info!("pipeline ready — frame size {} bytes", frame_size);
 
-    let mut watchdog = Watchdog::new();
-
-    let stalled = if test_pattern {
+    let stalled = if cli.test_pattern {
         info!("running with test pattern");
         run_test_pattern(
             &mut pipeline,
             w,
             h,
-            max_frames,
-            oneshot,
+            cli.frames,
+            cli.oneshot,
             &running,
             frame_interval,
             &mut watchdog,
@@ -153,7 +232,7 @@ fn main() {
         run_stdin(
             &mut pipeline,
             frame_size,
-            max_frames,
+            cli.frames,
             &running,
             stall_timeout,
             &mut watchdog,
@@ -171,6 +250,92 @@ fn main() {
 // ---------------------------------------------------------------------------
 // Frame sources
 // ---------------------------------------------------------------------------
+
+/// IPC inner-loop: framed frames in, JSON lane states out.
+///
+/// The outer shell owns pacing and timeouts, so a blocking read on the
+/// main thread is correct here — when the shell shuts down it closes our
+/// stdin and the read returns EOF. Every exit path forces all lanes off.
+///
+/// Returns the process exit code.
+fn run_ipc(
+    vision: PlantVision,
+    mut reducer: LaneReducer,
+    mut gpio: Box<dyn NozzleControl>,
+    max_frames: u64,
+    oneshot: bool,
+    running: &Arc<AtomicBool>,
+    watchdog: &mut Watchdog,
+) -> i32 {
+    let lane_count = reducer.lane_count();
+    let all_off = |gpio: &mut Box<dyn NozzleControl>| gpio.apply(&vec![false; lane_count]);
+
+    let mut stdin = std::io::stdin().lock();
+    let mut stdout = std::io::stdout().lock();
+    let mut buf: Vec<u8> = Vec::new();
+    let mut count: u64 = 0;
+
+    let exit_code = loop {
+        if !running.load(Ordering::SeqCst) {
+            info!("signal received — leaving IPC loop");
+            break 0;
+        }
+        let header = match ipc::read_frame(&mut stdin, &mut buf) {
+            Ok(Some(h)) => h,
+            Ok(None) => {
+                info!("end of input stream");
+                break 0;
+            }
+            Err(e) => {
+                // The stream is out of sync; continuing could misread
+                // pixel bytes as headers. Fail safe and let the shell
+                // restart us.
+                error!("IPC stream error: {e}");
+                break 2;
+            }
+        };
+        let ts_us = ipc::unix_micros();
+
+        let width = header.width as usize;
+        let height = header.height as usize;
+        if width < lane_count {
+            error!(
+                "frame width {} is smaller than the {} configured lanes",
+                width, lane_count,
+            );
+            break 2;
+        }
+
+        let start = Instant::now();
+        let mask = vision.detect(&buf);
+        let lanes = reducer.reduce(&mask, width, height);
+        gpio.apply(&lanes);
+        let latency_us = start.elapsed().as_micros() as u64;
+
+        let response = ipc::IpcResponse {
+            v: ipc::IPC_PROTOCOL_VERSION,
+            frame: count,
+            ts_us,
+            lanes,
+            latency_us,
+        };
+        if let Err(e) = ipc::write_response(&mut stdout, &response) {
+            // Broken pipe: the outer shell is gone.
+            error!("failed to write IPC response: {e}");
+            break 2;
+        }
+
+        count += 1;
+        watchdog.ping();
+        if oneshot || (max_frames > 0 && count >= max_frames) {
+            break 0;
+        }
+    };
+
+    all_off(&mut gpio);
+    info!("processed {} frames", count);
+    exit_code
+}
 
 #[allow(clippy::too_many_arguments)]
 fn run_test_pattern(
@@ -208,7 +373,7 @@ fn run_test_pattern(
         watchdog.ping();
 
         let elapsed = start.elapsed();
-        if count % 100 == 0 || count == 1 {
+        if count.is_multiple_of(100) || count == 1 {
             info!("frame {}: {:.1} ms", count, elapsed.as_secs_f64() * 1000.0,);
         }
 
@@ -287,7 +452,7 @@ fn run_stdin(
                 watchdog.ping();
 
                 let elapsed = start.elapsed();
-                if count % 100 == 0 || count == 1 {
+                if count.is_multiple_of(100) || count == 1 {
                     info!("frame {}: {:.1} ms", count, elapsed.as_secs_f64() * 1000.0,);
                 }
 
@@ -318,7 +483,7 @@ fn run_stdin(
 
 #[cfg(all(feature = "rpi", any(target_arch = "arm", target_arch = "aarch64")))]
 fn build_real_gpio(config: &Config) -> Box<dyn NozzleControl> {
-    use rustspray::io_gpio::RppalGpio;
+    use rustspray_core::io_gpio::RppalGpio;
     info!("using real GPIO pins: {:?}", config.gpio.pins);
     Box::new(RppalGpio::new(&config.gpio.pins))
 }
@@ -329,58 +494,4 @@ fn build_real_gpio(_config: &Config) -> Box<dyn NozzleControl> {
         "real GPIO unavailable (requires an ARM build with --features rpi); falling back to mock"
     );
     Box::new(MockGpio::default())
-}
-
-// ---------------------------------------------------------------------------
-// CLI helpers
-// ---------------------------------------------------------------------------
-
-fn get_arg_value(args: &[String], flag: &str) -> Option<String> {
-    args.iter()
-        .position(|a| a == flag)
-        .and_then(|i| args.get(i + 1))
-        .cloned()
-}
-
-fn print_usage() {
-    println!(
-        "\
-rustspray {version} — agricultural spray pipeline
-
-USAGE:
-    rustspray [OPTIONS]
-    <camera-source> | rustspray [OPTIONS]
-
-OPTIONS:
-    -c, --config <PATH>     Configuration file [default: /etc/rustspray/config.toml]
-        --mock-gpio         Print lane states to stdout instead of driving GPIO
-        --test-pattern      Use synthetic green/soil frames (no camera needed)
-        --oneshot           Process one frame then exit
-        --frames <N>        Stop after N frames (0 = unlimited)
-        --log-level <LVL>   Override log level (trace/debug/info/warn/error)
-    -h, --help              Print this help
-    -V, --version           Print version
-
-CAMERA SETUP:
-    Pipe camera output as raw RGB24 into stdin. Examples:
-
-    # Raspberry Pi Camera Module (CSI) via libcamera + ffmpeg
-    rpicam-vid -t 0 --width 640 --height 480 --framerate 30 \\
-               --codec yuv420 --nopreview -o - | \\
-    ffmpeg -f rawvideo -pix_fmt yuv420p -s 640x480 -i - \\
-           -f rawvideo -pix_fmt rgb24 pipe:1 | \\
-    rustspray --config /etc/rustspray/config.toml
-
-    # USB camera via ffmpeg + V4L2
-    ffmpeg -f v4l2 -framerate 30 -video_size 640x480 \\
-           -i /dev/video0 -f rawvideo -pix_fmt rgb24 pipe:1 | \\
-    rustspray --config /etc/rustspray/config.toml
-
-    # Dry-run without any camera
-    rustspray --test-pattern --mock-gpio
-
-    See the provided rustspray-camera helper script for automatic
-    camera setup based on config.toml.",
-        version = env!("CARGO_PKG_VERSION"),
-    );
 }

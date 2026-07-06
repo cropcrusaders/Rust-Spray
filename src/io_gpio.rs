@@ -6,13 +6,46 @@ pub trait NozzleControl {
     fn apply(&mut self, lanes: &[bool]);
 }
 
-/// Mock implementation that prints activations.
+/// Mock implementation that logs lane state **changes** to stderr as
+/// `[MOCK GPIO] lane=N state=ON/OFF`.
+///
+/// Output goes to stderr, never stdout: in `--ipc-mode` stdout carries the
+/// newline-delimited JSON protocol and must not be polluted.
 #[derive(Default)]
-pub struct MockGpio;
+pub struct MockGpio {
+    last: Option<Vec<bool>>,
+}
 
 impl NozzleControl for MockGpio {
     fn apply(&mut self, lanes: &[bool]) {
-        println!("mock gpio: {:?}", lanes);
+        for (lane, &state) in lanes.iter().enumerate() {
+            let changed = match &self.last {
+                Some(prev) => prev.get(lane) != Some(&state),
+                None => true, // first application: report every lane
+            };
+            if changed {
+                eprintln!(
+                    "[MOCK GPIO] lane={} state={}",
+                    lane,
+                    if state { "ON" } else { "OFF" },
+                );
+            }
+        }
+        self.last = Some(lanes.to_vec());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn mock_gpio_tracks_state_changes() {
+        let mut gpio = MockGpio::default();
+        gpio.apply(&[true, false]);
+        assert_eq!(gpio.last.as_deref(), Some(&[true, false][..]));
+        gpio.apply(&[false, false]);
+        assert_eq!(gpio.last.as_deref(), Some(&[false, false][..]));
     }
 }
 
